@@ -175,7 +175,7 @@ public class DefaultHttp2RemoteFlowController implements Http2RemoteFlowControll
         }
         // Save the context. We'll use this later when we write pending bytes.
         this.ctx = ctx;
-        FlowState state;
+        final FlowState state;
         try {
             state = state(stream);
             state.newFrame(payload);
