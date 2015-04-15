@@ -22,34 +22,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 public interface Headers<T> extends Iterable<Map.Entry<T, T>> {
-    /**
-     * Provides an abstraction to iterate over elements maintained in the {@link Headers} collection.
-     */
-    interface EntryVisitor<T> {
-        /**
-         * @return <ul>
-         *         <li>{@code true} if the processor wants to continue the loop and handle the entry.</li>
-         *         <li>{@code false} if the processor wants to stop handling headers and abort the loop.</li>
-         *         </ul>
-         */
-        boolean visit(Map.Entry<T, T> entry) throws Exception;
-    }
 
     /**
-     * Provides an abstraction to iterate over elements maintained in the {@link Headers} collection.
-     */
-    interface NameVisitor<T> {
-        /**
-         * @return <ul>
-         *         <li>{@code true} if the processor wants to continue the loop and handle the entry.</li>
-         *         <li>{@code false} if the processor wants to stop handling headers and abort the loop.</li>
-         *         </ul>
-         */
-        boolean visit(T name) throws Exception;
-    }
-
-    /**
-     * Converts to/from a generic object to the type of the name for this map
+     * Converts to/from a generic object to the type of the headers.
      */
     interface ValueConverter<T> {
         T convertObject(Object value);
@@ -130,17 +105,17 @@ public interface Headers<T> extends Iterable<Map.Entry<T, T>> {
     T getAndRemove(T name, T defaultValue);
 
     /**
-     * Returns the values of headers with the specified name
+     * Returns the values of the header with the specified name. The returned {@link List} can't be modified.
      *
-     * @param name The name of the headers to search
+     * @param name the name of the header to search
      * @return A {@link List} of header values which will be empty if no values are found
      */
     List<T> getAll(T name);
 
     /**
-     * Returns and Removes the values of headers with the specified name
+     * Returns and removes the values of the header with the specified name.
      *
-     * @param name The name of the headers to search
+     * @param name the name of the header to search
      * @return A {@link List} of header values which will be empty if no values are found
      */
     List<T> getAllAndRemove(T name);
@@ -524,16 +499,9 @@ public interface Headers<T> extends Iterable<Map.Entry<T, T>> {
     long getTimeMillisAndRemove(T name, long defaultValue);
 
     /**
-     * Returns a new {@link List} that contains all headers in this object. Note that modifying the returned
-     * {@link List} will not affect the state of this object. If you intend to enumerate over the header entries only,
-     * use {@link #iterator()} instead, which has much less overhead.
-     */
-    List<Entry<T, T>> entries();
-
-    /**
-     * Returns {@code true} if and only if this collection contains the header with the specified name.
+     * Returns {@code true} if a header with the name exists.
      *
-     * @param name The name of the header to search for
+     * @param name the header name
      * @return {@code true} if at least one header is found
      */
     boolean contains(T name);
@@ -638,353 +606,285 @@ public interface Headers<T> extends Iterable<Map.Entry<T, T>> {
     boolean containsTimeMillis(T name, long value);
 
     /**
-     * Returns {@code true} if a header with the name and value exists.
+     * Returns {@code true} if a header with the {@code name} and {@code value} exists.
      *
      * @param name the header name
      * @param value the header value
-     * @param comparator The comparator to use when comparing {@code name} and {@code value} to entries in this map
+     * @param valueComparator The comparator to use when comparing {@code value} to entries in this map
      * @return {@code true} if it contains it {@code false} otherwise
      */
-    boolean contains(T name, T value, Comparator<? super T> comparator);
+    boolean contains(T name, T value, Comparator<? super T> valueComparator);
 
     /**
-     * Returns {@code true} if a header with the name and value exists.
-     *
-     * @param name the header name
-     * @param value the header value
-     * @param keyComparator The comparator to use when comparing {@code name} to names in this map
-     * @param valueComparator The comparator to use when comparing {@code value} to values in this map
-     * @return {@code true} if it contains it {@code false} otherwise
-     */
-    boolean contains(T name, T value, Comparator<? super T> keyComparator, Comparator<? super T> valueComparator);
-
-    /**
-     * Returns {@code true} if a header with the name and value exists.
-     *
-     * @param name the header name
-     * @param value the header value
-     * @param comparator The comparator to use when comparing {@code name} and {@code value} to entries in this map
-     * @return {@code true} if it contains it {@code false} otherwise
-     */
-    boolean containsObject(T name, Object value, Comparator<? super T> comparator);
-
-    /**
-     * Returns {@code true} if a header with the name and value exists.
-     *
-     * @param name the header name
-     * @param value the header value
-     * @param keyComparator The comparator to use when comparing {@code name} to names in this map
-     * @param valueComparator The comparator to use when comparing {@code value} to values in this map
-     * @return {@code true} if it contains it {@code false} otherwise
-     */
-    boolean containsObject(T name, Object value, Comparator<? super T> keyComparator,
-            Comparator<? super T> valueComparator);
-
-    /**
-     * Returns the number of header entries in this collection.
+     * Returns the number of headers in this object.
      */
     int size();
 
     /**
-     * Returns {@code true} if and only if this collection contains no header entries.
+     * Returns {@code true} if {@link #size()} equals {@code 0}.
      */
     boolean isEmpty();
 
     /**
-     * Returns a new {@link Set} that contains the names of all headers in this object. Note that modifying the returned
-     * {@link Set} will not affect the state of this object. If you intend to enumerate over the header entries only,
-     * use {@link #iterator()} instead, which has much less overhead.
+     * Returns a {@link Set} of all header names in this object. The returned {@link Set} cannot be modified.
      */
     Set<T> names();
 
     /**
-     * Returns a new {@link List} that contains the names of all headers in this object. Note that modifying the
-     * returned {@link List} will not affect the state of this object. If you intend to enumerate over the header
-     * entries only, use {@link #iterator()} instead, which has much less overhead.
-     */
-    List<T> namesList();
-
-    /**
-     * Adds a new header with the specified name and value. If the specified value is not a {@link String}, it is
-     * converted into a {@link String} by {@link Object#toString()}, except in the cases of {@link java.util.Date} and
-     * {@link java.util.Calendar}, which are formatted to the date format defined in <a
-     * href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3.1">RFC2616</a>.
+     * Adds a new header with the specified name and value.
      *
-     * @param name the name of the header being added
-     * @param value the value of the header being added
+     * @param name the name of the header
+     * @param value the value of the header
+     * @throws NullPointerException if either {@code name} or {@code value} is null.
      * @return {@code this}
      */
     Headers<T> add(T name, T value);
 
     /**
-     * Adds a new header with the specified name and values. This getMethod can be represented approximately as the
-     * following code:
+     * Adds a new header with the specified name and values. This method is equivalent to
      *
      * <pre>
-     * for (Object v : values) {
-     *     if (v == null) {
-     *         break;
-     *     }
+     * for (T v : values) {
      *     headers.add(name, v);
      * }
      * </pre>
      *
-     * @param name the name of the headepublic abstract rs being set
-     * @param values the values of the headers being set
+     * @param name the header name
+     * @param values the values of the header
      * @return {@code this}
      */
     Headers<T> add(T name, Iterable<? extends T> values);
 
     /**
-     * Adds a new header with the specified name and values. This getMethod can be represented approximately as the
-     * following code:
+     * Adds a new header with the specified name and values. This method is equivalent to
      *
      * <pre>
-     * for (Object v : values) {
-     *     if (v == null) {
-     *         break;
-     *     }
+     * for (T v : values) {
      *     headers.add(name, v);
      * }
      * </pre>
      *
-     * @param name the name of the headepublic abstract rs being set
-     * @param values the values of the headers being set
+     * @param name the header name
+     * @param values the values of the header
      * @return {@code this}
      */
     Headers<T> add(T name, T... values);
 
     /**
-     * Adds a new header with the specified name and value. If the specified value is not a {@link String}, it is
-     * converted into a {@link String} by {@link Object#toString()}, except in the cases of {@link java.util.Date} and
-     * {@link java.util.Calendar}, which are formatted to the date format defined in <a
-     * href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3.1">RFC2616</a>.
+     * Adds a new header. Before the {@code value} is add, it's converted to type {@code T} by a call to
+     * {@link ValueConverter#convertObject(java.lang.Object)}.
      *
-     * @param name the name of the header being added
-     * @param value the value of the header being added
+     * @param name the header name
+     * @param value the value of the header
+     * @throws NullPointerException if either {@code name} or {@code value} before or after its conversion is
+     *                              {@code null}.
      * @return {@code this}
      */
     Headers<T> addObject(T name, Object value);
 
     /**
-     * Adds a new header with the specified name and values. This getMethod can be represented approximately as the
-     * following code:
+     * Adds a new header with the specified name and values. This method is equivalent to
      *
      * <pre>
      * for (Object v : values) {
-     *     if (v == null) {
-     *         break;
-     *     }
-     *     headers.add(name, v);
+     *     headers.addObject(name, v);
      * }
      * </pre>
      *
-     * @param name the name of the headepublic abstract rs being set
-     * @param values the values of the headers being set
+     * @param name the header name
+     * @param values the value of the header
      * @return {@code this}
      */
     Headers<T> addObject(T name, Iterable<?> values);
 
     /**
-     * Adds a new header with the specified name and values. This getMethod can be represented approximately as the
-     * following code:
+     * Adds a new header with the specified name and values. This method is equivalent to
      *
      * <pre>
      * for (Object v : values) {
-     *     if (v == null) {
-     *         break;
-     *     }
-     *     headers.add(name, v);
+     *     headers.addObject(name, v);
      * }
      * </pre>
      *
-     * @param name the name of the headepublic abstract rs being set
-     * @param values the values of the headers being set
+     * @param name the header name
+     * @param values the value of the header
      * @return {@code this}
      */
     Headers<T> addObject(T name, Object... values);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addBoolean(T name, boolean value);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addByte(T name, byte value);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addChar(T name, char value);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addShort(T name, short value);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addInt(T name, int value);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addLong(T name, long value);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addFloat(T name, float value);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addDouble(T name, double value);
 
     /**
-     * Add the {@code name} to {@code value}.
-     * @param name The name to modify
-     * @param value The value
+     * Adds a new header.
+     *
+     * @param name the header name
+     * @param value the value of the header
      * @return {@code this}
      */
     Headers<T> addTimeMillis(T name, long value);
 
     /**
-     * Adds all header entries of the specified {@code headers}.
+     * Adds all header names and values of {@code headers} to this object.
      *
+     * @throws IllegalArgumentException if {@code headers == this}.
      * @return {@code this}
      */
-    Headers<T> add(Headers<T> headers);
+    Headers<T> add(Headers<? extends T> headers);
 
     /**
-     * Sets a header with the specified name and value. If there is an existing header with the same name, it is
-     * removed. If the specified value is not a {@link String}, it is converted into a {@link String} by
-     * {@link Object#toString()}, except for {@link java.util.Date} and {@link java.util.Calendar}, which are formatted
-     * to the date format defined in <a
-     * href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3.1">RFC2616</a>.
+     * Sets a header with the specified name and value. Any existing headers with the same name are overwritten.
      *
-     * @param name The name of the header being set
-     * @param value The value of the header being set
+     * @param name the header name
+     * @param value the value of the header
+     * @throws NullPointerException if either {@code name} or {@code value} is {@code null}.
      * @return {@code this}
      */
     Headers<T> set(T name, T value);
 
     /**
-     * Sets a header with the specified name and values. If there is an existing header with the same name, it is
-     * removed. This getMethod can be represented approximately as the following code:
+     * Sets a new header with the specified name and values. This method is equivalent to
      *
      * <pre>
-     * headers.remove(name);
-     * for (Object v : values) {
-     *     if (v == null) {
-     *         break;
-     *     }
-     *     headers.add(name, v);
+     * for (T v : values) {
+     *     headers.addObject(name, v);
      * }
      * </pre>
      *
-     * @param name the name of the headers being set
-     * @param values the values of the headers being set
+     * @param name the header name
+     * @param values the value of the header
      * @return {@code this}
      */
     Headers<T> set(T name, Iterable<? extends T> values);
 
     /**
-     * Sets a header with the specified name and values. If there is an existing header with the same name, it is
-     * removed. This getMethod can be represented approximately as the following code:
+     * Sets a header with the specified name and values. Any existing headers with this name are removed. This method
+     * is equivalent to:
      *
      * <pre>
      * headers.remove(name);
-     * for (Object v : values) {
-     *     if (v == null) {
-     *         break;
-     *     }
+     * for (T v : values) {
      *     headers.add(name, v);
      * }
      * </pre>
      *
-     * @param name the name of the headers being set
-     * @param values the values of the headers being set
+     * @param name the header name
+     * @param values the value of the header
      * @return {@code this}
      */
     Headers<T> set(T name, T... values);
 
     /**
-     * Sets a header with the specified name and value. If there is an existing header with the same name, it is
-     * removed. If the specified value is not a {@link String}, it is converted into a {@link String} by
-     * {@link Object#toString()}, except for {@link java.util.Date} and {@link java.util.Calendar}, which are formatted
-     * to the date format defined in <a
-     * href="http://www.w3.org/Protocols/rfc2616/rfc2616-sec3.html#sec3.3.1">RFC2616</a>.
+     * Sets a new header. Any existing headers with this name are removed. Before the {@code value} is add, it's
+     * converted to type {@code T} by a call to {@link ValueConverter#convertObject(java.lang.Object)}.
      *
-     * @param name The name of the header being set
-     * @param value The value of the header being set
+     * @param name the header name
+     * @param value the value of the header
+     * @throws NullPointerException if either {@code name} or {@code value} before or after its conversion is
+     *                              {@code null}.
      * @return {@code this}
      */
     Headers<T> setObject(T name, Object value);
 
     /**
-     * Sets a header with the specified name and values. If there is an existing header with the same name, it is
-     * removed. This getMethod can be represented approximately as the following code:
+     * Sets a header with the specified name and values. Any existing headers with this name are removed. This method
+     * is equivalent to:
      *
      * <pre>
      * headers.remove(name);
      * for (Object v : values) {
-     *     if (v == null) {
-     *         break;
-     *     }
-     *     headers.add(name, v);
+     *     headers.addObject(name, v);
      * }
      * </pre>
      *
-     * @param name the name of the headers being set
-     * @param values the values of the headers being set
+     * @param name the header name
+     * @param values the values of the header
      * @return {@code this}
      */
     Headers<T> setObject(T name, Iterable<?> values);
 
     /**
-     * Sets a header with the specified name and values. If there is an existing header with the same name, it is
-     * removed. This getMethod can be represented approximately as the following code:
+     * Sets a header with the specified name and values. Any existing headers with this name are removed. This method
+     * is equivalent to:
      *
      * <pre>
      * headers.remove(name);
      * for (Object v : values) {
-     *     if (v == null) {
-     *         break;
-     *     }
-     *     headers.add(name, v);
+     *     headers.addObject(name, v);
      * }
      * </pre>
      *
-     * @param name the name of the headers being set
-     * @param values the values of the headers being set
+     * @param name the header name
+     * @param values the values of the header
      * @return {@code this}
      */
     Headers<T> setObject(T name, Object... values);
@@ -1062,30 +962,30 @@ public interface Headers<T> extends Iterable<Map.Entry<T, T>> {
     Headers<T> setTimeMillis(T name, long value);
 
     /**
-     * Cleans the current header entries and copies all header entries of the specified {@code headers}.
+     * Clears the current header entries and copies all header entries of the specified {@code headers}.
      *
      * @return {@code this}
      */
-    Headers<T> set(Headers<T> headers);
+    Headers<T> set(Headers<? extends T> headers);
 
     /**
-     * Retains all current headers but calls {@link #set(Object, Object)} for each entry in {@code headers}
+     * Retains all current headers but calls {@link #set(T, T)} for each entry in {@code headers}.
      *
-     * @param headers The headers used to {@link #set(Object, Object)} values in this instance
+     * @param headers The headers used to {@link #set(T, T)} values in this instance
      * @return {@code this}
      */
-    Headers<T> setAll(Headers<T> headers);
+    Headers<T> setAll(Headers<? extends T> headers);
 
     /**
-     * Removes the header with the specified name.
+     * Removes all headers with the specified {@code name}.
      *
-     * @param name The name of the header to remove
-     * @return {@code true} if and only if at least one entry has been removed
+     * @param name the header name
+     * @return {@code true} if at least one entry has been removed.
      */
     boolean remove(T name);
 
     /**
-     * Removes all headers.
+     * Removes all headers. After a call to this method {@link #size()} equals {@code 0}.
      *
      * @return {@code this}
      */
@@ -1093,18 +993,4 @@ public interface Headers<T> extends Iterable<Map.Entry<T, T>> {
 
     @Override
     Iterator<Entry<T, T>> iterator();
-
-    /**
-     * Provides an abstraction to iterate over elements maintained in the {@link Headers} collection.
-     * @param visitor The visitor which will visit each element in this map
-     * @return The last entry before iteration stopped or {@code null} if iteration went past the end
-     */
-    Map.Entry<T, T> forEachEntry(EntryVisitor<T> visitor) throws Exception;
-
-    /**
-     * Provides an abstraction to iterate over elements maintained in the {@link Headers} collection.
-     * @param visitor The visitor which will visit each element in this map
-     * @return The last key before iteration stopped or {@code null} if iteration went past the end
-     */
-    T forEachName(NameVisitor<T> visitor) throws Exception;
 }
