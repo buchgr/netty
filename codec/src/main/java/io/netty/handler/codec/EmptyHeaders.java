@@ -88,7 +88,7 @@ public class EmptyHeaders<T> implements Headers<T> {
     }
 
     @Override
-    public short getInt(T name, short defaultValue) {
+    public short getShort(T name, short defaultValue) {
         return defaultValue;
     }
 

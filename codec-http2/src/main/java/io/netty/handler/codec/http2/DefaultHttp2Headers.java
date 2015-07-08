@@ -18,7 +18,9 @@ import io.netty.handler.codec.BinaryHeaders;
 import io.netty.handler.codec.DefaultBinaryHeaders;
 import io.netty.util.ByteString;
 import java.io.Serializable;
-import java.util.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.TreeMap;
 
 public class DefaultHttp2Headers extends DefaultBinaryHeaders implements Http2Headers {
 
