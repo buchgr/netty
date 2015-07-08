@@ -21,7 +21,6 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
@@ -33,10 +32,12 @@ import java.util.TimeZone;
 import java.util.Date;
 import java.util.TreeMap;
 
-import static io.netty.util.internal.ObjectUtil.*;
+import static io.netty.util.internal.ObjectUtil.checkNotNull;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableSet;
+
 
 /**
  * Default implementation of {@link Headers};
@@ -126,9 +127,13 @@ public class DefaultHeaders<T> implements Headers<T> {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public boolean contains(T name, T value) {
-        List<T> values = getAll(name);
-        return values.contains(value);
+        Object values = map.get(name);
+        if (isList(values)) {
+            return ((List<T>) values).contains(value);
+        }
+        return values != null && values.equals(value);
     }
 
     @Override
@@ -182,14 +187,19 @@ public class DefaultHeaders<T> implements Headers<T> {
     }
 
     @Override
+    @SuppressWarnings("unchecked")
     public boolean contains(T name, T value, Comparator<? super T> valueComparator) {
-        List<T> values = getAll(name);
-        for (T value0 : values) {
-            if (valueComparator.compare(value, value0) == 0) {
-                return true;
+        Object values = map.get(name);
+        if (isList(values)) {
+            List<T> values0 = (List<T>) values;
+            for (int i = 0; i < values0.size(); i++) {
+                if (valueComparator.compare(value, values0.get(i)) == 0) {
+                    return true;
+                }
             }
+            return false;
         }
-        return false;
+        return values != null && valueComparator.compare((T) values, value) == 0;
     }
 
     @Override
@@ -204,12 +214,13 @@ public class DefaultHeaders<T> implements Headers<T> {
 
     @Override
     public Set<T> names() {
-        return Collections.unmodifiableSet(map.keySet());
+        return unmodifiableSet(map.keySet());
     }
 
     @Override
     public Headers<T> add(T name, T value) {
         validateName(name);
+        checkNotNull(value, "value");
         Object prevValue = map.put(name, value);
         size++;
         if (prevValue != null) {
@@ -345,7 +356,7 @@ public class DefaultHeaders<T> implements Headers<T> {
         checkNotNull(values, "values");
         List<T> list = newList();
         for (T value : values) {
-            list.add(value);
+            list.add(checkNotNull(value, "value"));
         }
         Object oldValue = map.put(name, list);
         updateSizeAfterSet(oldValue, list.size());
@@ -358,7 +369,7 @@ public class DefaultHeaders<T> implements Headers<T> {
         checkNotNull(values, "values");
         List<T> list = newList(values.length);
         for (int i = 0; i < values.length; i++) {
-            list.add(values[i]);
+            list.add(checkNotNull(values[i], "value"));
         }
         Object oldValue = map.put(name, list);
         updateSizeAfterSet(oldValue, values.length);
@@ -378,6 +389,7 @@ public class DefaultHeaders<T> implements Headers<T> {
         checkNotNull(values, "values");
         List<T> list = newList();
         for (Object value : values) {
+            value = checkNotNull(value, "value");
             T convertedValue = checkNotNull(valueConverter.convertObject(value), "convertedValue");
             list.add(convertedValue);
         }
@@ -392,7 +404,8 @@ public class DefaultHeaders<T> implements Headers<T> {
         checkNotNull(values, "values");
         List<T> list = newList(values.length);
         for (int i = 0; i < values.length; i++) {
-            T convertedValue = checkNotNull(valueConverter.convertObject(values[i]), "convertedValue");
+            Object value = checkNotNull(values[i], "value");
+            T convertedValue = checkNotNull(valueConverter.convertObject(value), "convertedValue");
             list.add(convertedValue);
         }
         Object oldValue = map.put(name, list);

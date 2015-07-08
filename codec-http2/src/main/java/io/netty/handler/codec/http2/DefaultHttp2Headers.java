@@ -18,8 +18,7 @@ import io.netty.handler.codec.BinaryHeaders;
 import io.netty.handler.codec.DefaultBinaryHeaders;
 import io.netty.util.ByteString;
 import java.io.Serializable;
-import java.util.Comparator;
-import java.util.TreeMap;
+import java.util.*;
 
 public class DefaultHttp2Headers extends DefaultBinaryHeaders implements Http2Headers {
 
@@ -284,6 +283,36 @@ public class DefaultHttp2Headers extends DefaultBinaryHeaders implements Http2He
     @Override
     public ByteString status() {
         return get(PseudoHeaderName.STATUS.value());
+    }
+
+    @Override
+    public int hashCode() {
+        return size();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof DefaultHttp2Headers)) {
+            return false;
+        }
+        DefaultHttp2Headers headers = (DefaultHttp2Headers) other;
+        if (size() != headers.size()) {
+            return false;
+        }
+        Comparator<ByteString> valueComparator = ByteString.DEFAULT_COMPARATOR;
+        for (ByteString  name : names()) {
+            List<ByteString> otherValues = headers.getAll(name);
+            List<ByteString> values = getAll(name);
+            if (otherValues.size() != values.size()) {
+                return false;
+            }
+            for (int i = 0; i < otherValues.size(); i++) {
+                if (valueComparator.compare(otherValues.get(i), values.get(i)) != 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private static class Http2HeaderNameComparator implements Comparator<ByteString>, Serializable {

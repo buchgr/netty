@@ -21,7 +21,9 @@ import io.netty.handler.codec.TextHeaders;
 import io.netty.util.AsciiString;
 
 import java.util.Calendar;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.List;
 import java.util.TreeMap;
 
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
@@ -271,6 +273,36 @@ public class DefaultHttpHeaders extends DefaultTextHeaders implements HttpHeader
     public HttpHeaders clear() {
         super.clear();
         return this;
+    }
+
+    @Override
+    public int hashCode() {
+        return size();
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (!(other instanceof DefaultHttpHeaders)) {
+            return false;
+        }
+        DefaultHttpHeaders headers = (DefaultHttpHeaders) other;
+        if (size() != headers.size()) {
+            return false;
+        }
+        Comparator<CharSequence> valueComparator = AsciiString.CHARSEQUENCE_CASE_SENSITIVE_ORDER;
+        for (CharSequence  name : names()) {
+            List<CharSequence> otherValues = headers.getAll(name);
+            List<CharSequence> values = getAll(name);
+            if (otherValues.size() != values.size()) {
+                return false;
+            }
+            for (int i = 0; i < otherValues.size(); i++) {
+                if (valueComparator.compare(otherValues.get(i), values.get(i)) != 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     static final class HeaderNameValidator implements DefaultHeaders.NameValidator<CharSequence> {

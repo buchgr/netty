@@ -17,9 +17,9 @@ package io.netty.handler.codec.http;
 
 import org.junit.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 
+import static java.util.Arrays.asList;
 import static org.junit.Assert.assertEquals;
 
 public class DefaultHttpHeadersTest {
@@ -32,10 +32,7 @@ public class DefaultHttpHeadersTest {
         headers.add("NAME", "value3");
         assertEquals(3, headers.size());
 
-        List<CharSequence> values = new ArrayList<CharSequence>();
-        values.add("value1");
-        values.add("value2");
-        values.add("value3");
+        List<String> values = asList("value1", "value2", "value3");
 
         assertEquals(values, headers.getAll("NAME"));
         assertEquals(values, headers.getAll("name"));
