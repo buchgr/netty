@@ -572,7 +572,7 @@ public class DefaultHeaders<T> implements Headers<T> {
     }
 
     @Override
-    public short getInt(T name, short defaultValue) {
+    public short getShort(T name, short defaultValue) {
         Short v = getShort(name);
         return v == null ? defaultValue : v;
     }

@@ -17,11 +17,10 @@ package io.netty.handler.codec;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-public interface Headers<T> extends Iterable<Map.Entry<T, T>> {
+public interface Headers<T> extends Iterable<Entry<T, T>> {
 
     /**
      * Converts to/from a generic object to the type of the headers.
@@ -67,245 +66,246 @@ public interface Headers<T> extends Iterable<Map.Entry<T, T>> {
     }
 
     /**
-     * Returns the value of a header with the specified name. If there are more than one values for the specified name,
-     * the first value is returned.
+     * Returns the value of a header with the specified name. If there is more than one value for the specified name,
+     * the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found. {@code null} if there's no such header.
+     * @param name the name of the header to retrieve
+     * @return the first header value if the header is found. {@code null} if there's no such header
      */
     T get(T name);
 
     /**
-     * Returns the value of a header with the specified name. If there are more than one values for the specified name,
-     * the first value is returned.
+     * Returns the value of a header with the specified name. If there is more than one value for the specified name,
+     * the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found. {@code defaultValue} if there's no such header.
+     * @return the first header value or {@code defaultValue} if there is no such header
      */
     T get(T name, T defaultValue);
 
     /**
-     * Returns and removes the value of a header with the specified name. If there are more than one values for the
-     * specified name, the first value is returned.
+     * Returns the value of a header with the specified name and removes it from this object. If there is more than
+     * one value for the specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @return the first header value or {@code null} if there is no such header
      */
     T getAndRemove(T name);
 
     /**
-     * Returns and removes the value of a header with the specified name. If there are more than one values for the
-     * specified name, the first value is returned.
+     * Returns the value of a header with the specified name and removes it from this object. If there is more than
+     * one value for the specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
      * @return the first header value or {@code defaultValue} if there is no such header
      */
     T getAndRemove(T name, T defaultValue);
 
     /**
-     * Returns the values of the header with the specified name. The returned {@link List} can't be modified.
+     * Returns all values for the header with the specified name. The returned {@link List} can't be modified.
      *
-     * @param name the name of the header to search
-     * @return A {@link List} of header values which will be empty if no values are found
+     * @param name the name of the header to retrieve
+     * @return a {@link List} of header values or an empty {@link List} if no values are found.
      */
     List<T> getAll(T name);
 
     /**
-     * Returns and removes the values of the header with the specified name.
+     * Returns all values for the header with the specified name and removes them from this object.
+     * The returned {@link List} can't be modified.
      *
-     * @param name the name of the header to search
-     * @return A {@link List} of header values which will be empty if no values are found
+     * @param name the name of the header to retrieve
+     * @return a {@link List} of header values or an empty {@link List} if no values are found.
      */
     List<T> getAllAndRemove(T name);
 
     /**
-     * Returns the boolean value of a header with the specified name. If there are more than one values for the
-     * specified name, the first value is returned.
+     * Returns the {@code boolean} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found and its value is a boolean. {@code null} if there's no such
-     *         header or its value is not a boolean.
+     * @param name the name of the header to retrieve
+     * @return the {@code boolean} value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to {@code boolean}.
      */
     Boolean getBoolean(T name);
 
     /**
-     * Returns the boolean value of a header with the specified name. If there are more than one values for the
-     * specified name, the first value is returned.
+     * Returns the {@code boolean} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found and its value is a boolean. {@code defaultValue} if there's
-     *         no such header or its value is not a boolean.
+     * @return the {@code boolean} value of the first value in insertion order or {@code defaultValue} if there is no
+     *         such value or it can't be converted to {@code boolean}.
      */
     boolean getBoolean(T name, boolean defaultValue);
 
     /**
-     * Returns the byte value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code byte} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found and its value is a byte. {@code null} if there's no such
-     *         header or its value is not a byte.
+     * @param name the name of the header to retrieve
+     * @return the {@code byte} value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to {@code byte}.
      */
     Byte getByte(T name);
 
     /**
-     * Returns the byte value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code byte} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found and its value is a byte. {@code defaultValue} if there's no
-     *         such header or its value is not a byte.
+     * @return the {@code byte} value of the first value in insertion order or {@code defaultValue} if there is no
+     *         such value or it can't be converted to {@code byte}.
      */
     byte getByte(T name, byte defaultValue);
 
     /**
-     * Returns the char value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code char} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found and its value is a char. {@code null} if there's no such
-     *         header or its value is not a char.
+     * @param name the name of the header to retrieve
+     * @return the {@code char} value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to {@code char}.
      */
     Character getChar(T name);
 
     /**
-     * Returns the char value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code char} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found and its value is a char. {@code defaultValue} if there's no
-     *         such header or its value is not a char.
+     * @return the {@code char} value of the first value in insertion order or {@code defaultValue} if there is no
+     *         such value or it can't be converted to {@code char}.
      */
     char getChar(T name, char defaultValue);
 
     /**
-     * Returns the short value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code short} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found and its value is a short. {@code null} if there's no such
-     *         header or its value is not a short.
+     * @param name the name of the header to retrieve
+     * @return the {@code short} value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to {@code short}.
      */
     Short getShort(T name);
 
     /**
-     * Returns the short value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code short} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found and its value is a short. {@code defaultValue} if there's
-     *         no such header or its value is not a short.
+     * @return the {@code short} value of the first value in insertion order or {@code defaultValue} if there is no
+     *         such value or it can't be converted to {@code short}.
      */
-    short getInt(T name, short defaultValue);
+    short getShort(T name, short defaultValue);
 
     /**
-     * Returns the integer value of a header with the specified name. If there are more than one values for the
-     * specified name, the first value is returned.
+     * Returns the {@code int} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found and its value is an integer. {@code null} if there's no
-     *         such header or its value is not an integer.
+     * @param name the name of the header to retrieve
+     * @return the {@code int} value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to {@code int}.
      */
     Integer getInt(T name);
 
     /**
-     * Returns the integer value of a header with the specified name. If there are more than one values for the
-     * specified name, the first value is returned.
+     * Returns the {@code int} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found and its value is an integer. {@code defaultValue} if
-     *         there's no such header or its value is not an integer.
+     * @return the {@code int} value of the first value in insertion order or {@code defaultValue} if there is no
+     *         such value or it can't be converted to {@code int}.
      */
     int getInt(T name, int defaultValue);
 
     /**
-     * Returns the long value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code long} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found and its value is a long. {@code null} if there's no such
-     *         header or its value is not a long.
+     * @param name the name of the header to retrieve
+     * @return the {@code long} value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to {@code long}.
      */
     Long getLong(T name);
 
     /**
-     * Returns the long value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code long} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found and its value is a long. {@code defaultValue} if there's no
-     *         such header or its value is not a long.
+     * @return the {@code long} value of the first value in insertion order or {@code defaultValue} if there is no
+     *         such value or it can't be converted to {@code long}.
      */
     long getLong(T name, long defaultValue);
 
     /**
-     * Returns the float value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code float} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found and its value is a float. {@code null} if there's no such
-     *         header or its value is not a float.
+     * @param name the name of the header to retrieve
+     * @return the {@code float} value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to {@code float}.
      */
     Float getFloat(T name);
 
     /**
-     * Returns the float value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code float} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found and its value is a float. {@code defaultValue} if there's
-     *         no such header or its value is not a float.
+     * @return the {@code float} value of the first value in insertion order or {@code defaultValue} if there is no
+     *         such value or it can't be converted to {@code float}.
      */
     float getFloat(T name, float defaultValue);
 
     /**
-     * Returns the double value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code double} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
-     * @return the first header value if the header is found and its value is a double. {@code null} if there's no such
-     *         header or its value is not a double.
+     * @param name the name of the header to retrieve
+     * @return the {@code double} value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to {@code double}.
      */
     Double getDouble(T name);
 
     /**
-     * Returns the double value of a header with the specified name. If there are more than one values for the specified
-     * name, the first value is returned.
+     * Returns the {@code double} value of a header with the specified name. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name the name of the header to search
+     * @param name the name of the header to retrieve
      * @param defaultValue the default value
-     * @return the first header value if the header is found and its value is a double. {@code defaultValue} if there's
-     *         no such header or its value is not a double.
+     * @return the {@code double} value of the first value in insertion order or {@code defaultValue} if there is no
+     *         such value or it can't be converted to {@code double}.
      */
     double getDouble(T name, double defaultValue);
 
     /**
-     * Returns the date value of a header with the specified name as milliseconds. If there are more than one values for
-     * the specified name, the first value is returned.
+     * Returns the value of a header with the specified name in milliseconds. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name The name of the header to search
-     * @return the first header value in milliseconds if the header is found and its value is a date. {@code null} if
-     *         there's no such header or its value is not a date.
+     * @param name the name of the header to retrieve
+     * @return the milliseconds value of the first value in insertion order or {@code null} if there is no such
+     *         value or it can't be converted to milliseconds.
      */
     Long getTimeMillis(T name);
 
     /**
-     * Returns the date value of a header with the specified name as milliseconds. If there are more than one values for
-     * the specified name, the first value is returned.
+     * Returns the value of a header with the specified name in milliseconds. If there is more than one value for the
+     * specified name, the first value in insertion order is returned.
      *
-     * @param name The name of the header to search
-     * @param defaultValue default value
-     * @return the first header value in milliseconds if the header is found and its value is a date.
-     *         {@code defaultValue} if there's no such header or its value is not a date.
+     * @param name the name of the header to retrieve
+     * @param defaultValue the default value
+     * @return the milliseconds value of the first value in insertion order or {@code defaultValue} if there is no such
+     *         value or it can't be converted to milliseconds.
      */
     long getTimeMillis(T name, long defaultValue);
 
