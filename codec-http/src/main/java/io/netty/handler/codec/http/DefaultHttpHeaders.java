@@ -19,13 +19,13 @@ import io.netty.handler.codec.DefaultHeaders;
 import io.netty.handler.codec.DefaultTextHeaders;
 import io.netty.handler.codec.TextHeaders;
 import io.netty.util.AsciiString;
+import it.unimi.dsi.fastutil.Hash;
+import it.unimi.dsi.fastutil.objects.Object2ObjectLinkedOpenCustomHashMap;
 
 import java.util.Calendar;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-import java.util.TreeMap;
-
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
 
 public class DefaultHttpHeaders extends DefaultTextHeaders implements HttpHeaders {
@@ -65,7 +65,50 @@ public class DefaultHttpHeaders extends DefaultTextHeaders implements HttpHeader
     protected DefaultHttpHeaders(boolean validate,
                                  DefaultHeaders.NameValidator<CharSequence> nameValidator,
                                  boolean singleHeaderFields) {
-        super(new TreeMap<CharSequence, Object>(AsciiString.CHARSEQUENCE_CASE_INSENSITIVE_ORDER),
+        super(new Object2ObjectLinkedOpenCustomHashMap<CharSequence, Object>(
+                        new Hash.Strategy<CharSequence>() {
+                            @Override
+                            public int hashCode(CharSequence name) {
+                                int h = 0;
+                                for (int i = name.length() - 1; i >= 0; i --) {
+                                    char c = name.charAt(i);
+                                    if (c >= 'A' && c <= 'Z') {
+                                        c += 32;
+                                    }
+                                    h = 31 * h + c;
+                                }
+                                return h;
+                            }
+
+                            @Override
+                            public boolean equals(CharSequence name1, CharSequence name2) {
+                                if (name1 == name2) {
+                                    return true;
+                                }
+
+                                int nameLen = name1.length();
+                                if (nameLen != name2.length()) {
+                                    return false;
+                                }
+
+                                for (int i = nameLen - 1; i >= 0; i --) {
+                                    char c1 = name1.charAt(i);
+                                    char c2 = name2.charAt(i);
+                                    if (c1 != c2) {
+                                        if (c1 >= 'A' && c1 <= 'Z') {
+                                            c1 += 32;
+                                        }
+                                        if (c2 >= 'A' && c2 <= 'Z') {
+                                            c2 += 32;
+                                        }
+                                        if (c1 != c2) {
+                                            return false;
+                                        }
+                                    }
+                                }
+                                return true;
+                            }
+                }),
               nameValidator,
               validate ? HeaderValueConverterAndValidator.INSTANCE : HeaderValueConverter.INSTANCE,
               singleHeaderFields);
