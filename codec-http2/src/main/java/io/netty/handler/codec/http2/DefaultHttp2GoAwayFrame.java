@@ -27,6 +27,7 @@ import io.netty.util.internal.UnstableApi;
 public final class DefaultHttp2GoAwayFrame extends DefaultByteBufHolder implements Http2GoAwayFrame {
     private final long errorCode;
     private int extraStreamIds;
+    private int lastStreamId = -1;
 
     /**
      * Equivalent to {@code new DefaultHttp2GoAwayFrame(error.code())}.
@@ -67,6 +68,16 @@ public final class DefaultHttp2GoAwayFrame extends DefaultByteBufHolder implemen
         this.errorCode = errorCode;
     }
 
+    DefaultHttp2GoAwayFrame(int lastStreamId, long errorCode, ByteBuf content) {
+        this(errorCode, content);
+        this.lastStreamId = lastStreamId;
+    }
+
+    @Override
+    public String name() {
+        return "GOAWAY";
+    }
+
     @Override
     public long errorCode() {
         return errorCode;
@@ -84,6 +95,11 @@ public final class DefaultHttp2GoAwayFrame extends DefaultByteBufHolder implemen
         }
         this.extraStreamIds = extraStreamIds;
         return this;
+    }
+
+    @Override
+    public int lastStreamId() {
+        return lastStreamId;
     }
 
     @Override
@@ -152,6 +168,6 @@ public final class DefaultHttp2GoAwayFrame extends DefaultByteBufHolder implemen
     @Override
     public String toString() {
         return "DefaultHttp2GoAwayFrame(errorCode=" + errorCode + ", content=" + content()
-               + ", extraStreamIds=" + extraStreamIds + ")";
+               + ", extraStreamIds=" + extraStreamIds + ", lastStreamId=" + lastStreamId + ")";
     }
 }

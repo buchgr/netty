@@ -15,41 +15,16 @@
  */
 package io.netty.handler.codec.http2;
 
-import io.netty.util.internal.UnstableApi;
+public abstract class AbstractHttp2StreamStateEvent implements Http2StreamStateEvent {
 
-/**
- * Abstract implementation of {@link Http2StreamFrame}.
- */
-@UnstableApi
-public abstract class AbstractHttp2StreamFrame implements Http2StreamFrame {
+    private final int streamId;
 
-    private int streamId = -1;
-
-    @Override
-    public AbstractHttp2StreamFrame setStreamId(int streamId) {
+    public AbstractHttp2StreamStateEvent(int streamId) {
         this.streamId = streamId;
-        return this;
     }
 
     @Override
     public int streamId() {
-        return streamId;
-    }
-
-    /**
-     * Returns {@code true} if {@code o} has equal {@code stream} to this object.
-     */
-    @Override
-    public boolean equals(Object o) {
-        if (!(o instanceof Http2StreamFrame)) {
-            return false;
-        }
-        Http2StreamFrame other = (Http2StreamFrame) o;
-        return streamId == other.streamId();
-    }
-
-    @Override
-    public int hashCode() {
         return streamId;
     }
 }
