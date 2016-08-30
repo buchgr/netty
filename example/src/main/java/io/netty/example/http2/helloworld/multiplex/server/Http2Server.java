@@ -37,6 +37,8 @@ import io.netty.handler.ssl.SslProvider;
 import io.netty.handler.ssl.SupportedCipherSuiteFilter;
 import io.netty.handler.ssl.util.SelfSignedCertificate;
 
+import java.util.logging.LogManager;
+
 /**
  * A HTTP/2 Server that responds to requests with a Hello World. Once started, you can test the
  * server with the example client.
@@ -51,6 +53,7 @@ public final class Http2Server {
     static final int PORT = Integer.parseInt(System.getProperty("port", SSL? "8443" : "8080"));
 
     public static void main(String[] args) throws Exception {
+        LogManager.getLogManager().reset();
         // Configure SSL.
         final SslContext sslCtx;
         if (SSL) {
@@ -80,7 +83,6 @@ public final class Http2Server {
             b.option(ChannelOption.SO_BACKLOG, 1024);
             b.group(group)
              .channel(NioServerSocketChannel.class)
-             .handler(new LoggingHandler(LogLevel.INFO))
              .childHandler(new Http2ServerInitializer(sslCtx));
 
             Channel ch = b.bind(PORT).sync().channel();

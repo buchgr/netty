@@ -44,8 +44,6 @@ import static io.netty.handler.logging.LogLevel.INFO;
 @UnstableApi
 public class Http2FrameCodec extends ChannelDuplexHandler {
 
-    private static final Http2FrameLogger HTTP2_FRAME_LOGGER = new Http2FrameLogger(INFO, Http2FrameCodec.class);
-
     private final Http2ConnectionHandler http2Handler;
 
     private ChannelHandlerContext ctx;
@@ -63,9 +61,8 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
     // Visible for testing
     Http2FrameCodec(boolean server, Http2FrameWriter frameWriter) {
         Http2Connection connection = new DefaultHttp2Connection(server);
-        frameWriter = new Http2OutboundFrameLogger(frameWriter, HTTP2_FRAME_LOGGER);
         Http2ConnectionEncoder encoder = new DefaultHttp2ConnectionEncoder(connection, frameWriter);
-        Http2FrameReader reader = new Http2InboundFrameLogger(new DefaultHttp2FrameReader(), HTTP2_FRAME_LOGGER);
+        Http2FrameReader reader = new DefaultHttp2FrameReader();
         Http2ConnectionDecoder decoder = new DefaultHttp2ConnectionDecoder(connection, encoder, reader);
         decoder.frameListener(new FrameListener());
         http2Handler = new InternalHttp2ConnectionHandler(decoder, encoder, new Http2Settings());

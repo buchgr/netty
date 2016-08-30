@@ -77,7 +77,6 @@ public final class Http2Server {
             b.option(ChannelOption.SO_BACKLOG, 1024);
             b.group(group)
              .channel(NioServerSocketChannel.class)
-             .handler(new LoggingHandler(LogLevel.INFO))
              .childHandler(new Http2ServerInitializer(sslCtx));
 
             Channel ch = b.bind(PORT).sync().channel();

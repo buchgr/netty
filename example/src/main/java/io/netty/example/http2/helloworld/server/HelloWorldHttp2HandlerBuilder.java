@@ -30,7 +30,7 @@ public final class HelloWorldHttp2HandlerBuilder
     private static final Http2FrameLogger logger = new Http2FrameLogger(INFO, HelloWorldHttp2Handler.class);
 
     public HelloWorldHttp2HandlerBuilder() {
-        frameLogger(logger);
+        //frameLogger(logger);
     }
 
     @Override

@@ -88,7 +88,8 @@ public class Http2ServerInitializer extends ChannelInitializer<SocketChannel> {
      */
     private void configureClearText(SocketChannel ch) {
         final ChannelPipeline p = ch.pipeline();
-        final HttpServerCodec sourceCodec = new HttpServerCodec();
+        p.addLast(new Http2Codec(true, new HelloWorldHttp2Handler()));
+        /*final HttpServerCodec sourceCodec = new HttpServerCodec();
 
         p.addLast(sourceCodec);
         p.addLast(new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory));
@@ -105,7 +106,7 @@ public class Http2ServerInitializer extends ChannelInitializer<SocketChannel> {
             }
         });
 
-        p.addLast(new UserEventLogger());
+        p.addLast(new UserEventLogger());*/
     }
 
     /**
