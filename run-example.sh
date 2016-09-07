@@ -20,6 +20,7 @@ EXAMPLE_MAP=(
   'http2-server:io.netty.example.http2.helloworld.server.Http2Server'
   'http2-tiles:io.netty.example.http2.tiles.Launcher'
   'http2-multiplex-server:io.netty.example.http2.helloworld.multiplex.server.Http2Server'
+  'http2-message-server:io.netty.example.http2.helloworld.message.server.Http2Server'
   'spdy-client:io.netty.example.spdy.client.SpdyClient'
   'spdy-server:io.netty.example.spdy.server.SpdyServer'
   'worldclock-client:io.netty.example.worldclock.WorldClockClient'
