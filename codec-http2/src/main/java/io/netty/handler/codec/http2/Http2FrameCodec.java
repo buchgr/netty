@@ -57,7 +57,6 @@ public final class Http2FrameCodec extends Http2ConnectionHandler {
      * @param server {@code true} this is a server
      * @param writer the {@link Http2FrameWriter} to use
      * @param reader the {@link Http2FrameReader} to use
-
      */
     public Http2FrameCodec(boolean server, Http2FrameWriter writer, Http2FrameReader reader,
                            Http2Settings initialSettings) {
