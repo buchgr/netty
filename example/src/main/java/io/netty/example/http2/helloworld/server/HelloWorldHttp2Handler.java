@@ -23,6 +23,7 @@ import io.netty.handler.codec.http2.DefaultHttp2Headers;
 import io.netty.handler.codec.http2.Http2ConnectionDecoder;
 import io.netty.handler.codec.http2.Http2ConnectionEncoder;
 import io.netty.handler.codec.http2.Http2ConnectionHandler;
+import io.netty.handler.codec.http2.Http2Exception;
 import io.netty.handler.codec.http2.Http2Flags;
 import io.netty.handler.codec.http2.Http2FrameListener;
 import io.netty.handler.codec.http2.Http2Headers;
@@ -78,7 +79,11 @@ public final class HelloWorldHttp2Handler extends Http2ConnectionHandler impleme
         Http2Headers headers = new DefaultHttp2Headers().status(OK.codeAsText());
         encoder().writeHeaders(ctx, streamId, headers, 0, false, ctx.newPromise());
         encoder().writeData(ctx, streamId, payload, 0, true, ctx.newPromise());
-        ctx.flush();
+        try {
+            flush(ctx);
+        } catch (Http2Exception e) {
+            onError(ctx, e);
+        }
     }
 
     @Override

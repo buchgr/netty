@@ -86,24 +86,7 @@ public class Http2ServerInitializer extends ChannelInitializer<SocketChannel> {
      */
     private void configureClearText(SocketChannel ch) {
         final ChannelPipeline p = ch.pipeline();
-        final HttpServerCodec sourceCodec = new HttpServerCodec();
-
-        p.addLast(sourceCodec);
-        p.addLast(new HttpServerUpgradeHandler(sourceCodec, upgradeCodecFactory));
-        p.addLast(new SimpleChannelInboundHandler<HttpMessage>() {
-            @Override
-            protected void channelRead0(ChannelHandlerContext ctx, HttpMessage msg) throws Exception {
-                // If this handler is hit then no upgrade has been attempted and the client is just talking HTTP.
-                System.err.println("Directly talking: " + msg.protocolVersion() + " (no upgrade was attempted)");
-                ChannelPipeline pipeline = ctx.pipeline();
-                ChannelHandlerContext thisCtx = pipeline.context(this);
-                pipeline.addAfter(thisCtx.name(), null, new HelloWorldHttp1Handler("Direct. No Upgrade Attempted."));
-                pipeline.replace(this, null, new HttpObjectAggregator(maxHttpContentLength));
-                ctx.fireChannelRead(msg);
-            }
-        });
-
-        p.addLast(new UserEventLogger());
+        p.addLast(new HelloWorldHttp2HandlerBuilder().build());
     }
 
     /**
