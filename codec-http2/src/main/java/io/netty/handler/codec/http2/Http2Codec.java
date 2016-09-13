@@ -52,13 +52,13 @@ public final class Http2Codec extends ChannelDuplexHandler {
      */
     public Http2Codec(boolean server, ChannelHandler streamHandler,
                       EventLoopGroup streamGroup) {
-        this(server, streamHandler, streamGroup, new DefaultHttp2FrameWriter());
+        this(server, streamHandler, streamGroup, new DefaultHttp2FrameWriter(), new DefaultHttp2FrameReader());
     }
 
     // Visible for testing
     Http2Codec(boolean server, ChannelHandler streamHandler,
-               EventLoopGroup streamGroup, Http2FrameWriter frameWriter) {
-        frameCodec = new Http2FrameCodec(server, frameWriter);
+               EventLoopGroup streamGroup, Http2FrameWriter frameWriter, Http2FrameReader frameReader) {
+        frameCodec = new Http2FrameCodec(server, frameWriter, frameReader, new Http2Settings());
         multiplexCodec = new Http2MultiplexCodec(server, streamGroup, streamHandler);
     }
 

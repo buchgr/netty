@@ -82,6 +82,14 @@ public class Http2ConnectionHandler extends ByteToMessageDecoder implements Http
         }
     }
 
+    Http2ConnectionHandler(boolean server, Http2FrameWriter frameWriter, Http2FrameReader frameReader,
+                           Http2Settings initialSettings) {
+        Http2Connection connection = new DefaultHttp2Connection(server);
+        encoder = new DefaultHttp2ConnectionEncoder(connection, frameWriter);
+        decoder = new DefaultHttp2ConnectionDecoder(connection, encoder, frameReader);
+        this.initialSettings = checkNotNull(initialSettings, "initialSettings");
+    }
+
     /**
      * Get the amount of time (in milliseconds) this endpoint will wait for all streams to be closed before closing
      * the connection during the graceful shutdown process.
@@ -159,11 +167,7 @@ public class Http2ConnectionHandler extends ByteToMessageDecoder implements Http
     public void flush(ChannelHandlerContext ctx) throws Http2Exception {
         // Trigger pending writes in the remote flow controller.
         encoder.flowController().writePendingBytes();
-        try {
-            ctx.flush();
-        } catch (Throwable t) {
-            throw new Http2Exception(INTERNAL_ERROR, "Error flushing" , t);
-        }
+        ctx.flush();
     }
 
     private abstract class BaseDecoder {

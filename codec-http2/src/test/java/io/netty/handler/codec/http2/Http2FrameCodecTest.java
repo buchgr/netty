@@ -75,8 +75,8 @@ public class Http2FrameCodecTest {
     @Before
     public void setUp() throws Exception {
         frameWriter = spy(new VerifiableHttp2FrameWriter());
-        framingCodec = new Http2FrameCodec(true, frameWriter);
-        frameListener = ((DefaultHttp2ConnectionDecoder) framingCodec.connectionHandler().decoder())
+        framingCodec = new Http2FrameCodec(true, frameWriter, new DefaultHttp2FrameReader(), new Http2Settings());
+        frameListener = ((DefaultHttp2ConnectionDecoder) framingCodec.decoder())
                 .internalFrameListener();
         inboundHandler = new LastInboundHandler();
 
@@ -84,7 +84,7 @@ public class Http2FrameCodecTest {
         channel.connect(new InetSocketAddress(0));
         channel.pipeline().addLast(framingCodec);
         channel.pipeline().addLast(inboundHandler);
-        http2HandlerCtx = channel.pipeline().context(framingCodec.connectionHandler());
+        http2HandlerCtx = channel.pipeline().context(framingCodec);
 
         // Handshake
         verify(frameWriter).writeSettings(eq(http2HandlerCtx),
@@ -103,23 +103,10 @@ public class Http2FrameCodecTest {
     }
 
     @Test
-    public void connectionHandlerShouldBeAddedBeforeFramingHandler() {
-        Iterator<Entry<String, ChannelHandler>> iter = channel.pipeline().iterator();
-        while (iter.hasNext()) {
-            ChannelHandler handler = iter.next().getValue();
-            if (handler instanceof Http2ConnectionHandler) {
-                break;
-            }
-        }
-        assertTrue(iter.hasNext());
-        assertThat(iter.next().getValue(), instanceOf(Http2FrameCodec.class));
-    }
-
-    @Test
     public void headerRequestHeaderResponse() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 1, request, 31, true);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(1);
+        Http2Stream stream = framingCodec.connection().stream(1);
         assertNotNull(stream);
         assertEquals(State.HALF_CLOSED_REMOTE, stream.state());
 
@@ -142,7 +129,7 @@ public class Http2FrameCodecTest {
     public void entityRequestEntityResponse() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 1, request, 0, false);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(1);
+        Http2Stream stream = framingCodec.connection().stream(1);
         assertNotNull(stream);
         assertEquals(State.OPEN, stream.state());
 
@@ -180,7 +167,7 @@ public class Http2FrameCodecTest {
     public void sendRstStream() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 31, true);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(3);
+        Http2Stream stream = framingCodec.connection().stream(3);
         assertNotNull(stream);
         assertEquals(State.HALF_CLOSED_REMOTE, stream.state());
 
@@ -195,7 +182,7 @@ public class Http2FrameCodecTest {
     public void receiveRstStream() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 31, false);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(3);
+        Http2Stream stream = framingCodec.connection().stream(3);
         assertNotNull(stream);
         assertEquals(State.OPEN, stream.state());
 
@@ -224,7 +211,7 @@ public class Http2FrameCodecTest {
     public void sendGoAway() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 31, false);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(3);
+        Http2Stream stream = framingCodec.connection().stream(3);
         assertNotNull(stream);
         assertEquals(State.OPEN, stream.state());
 
@@ -286,7 +273,7 @@ public class Http2FrameCodecTest {
     public void incomingStreamActiveShouldFireUserEvent() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 31, false);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(3);
+        Http2Stream stream = framingCodec.connection().stream(3);
         assertNotNull(stream);
 
         Http2HeadersFrame frame = inboundHandler.readInbound();
@@ -303,7 +290,7 @@ public class Http2FrameCodecTest {
     public void goAwayLastStreamIdOverflowed() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 5, request, 31, false);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(5);
+        Http2Stream stream = framingCodec.connection().stream(5);
         assertNotNull(stream);
         assertEquals(State.OPEN, stream.state());
 
@@ -322,11 +309,11 @@ public class Http2FrameCodecTest {
 
     @Test
     public void outgoingStreamActiveShouldFireUserEvent() throws Exception {
-        Http2ConnectionEncoder encoder = framingCodec.connectionHandler().encoder();
+        Http2ConnectionEncoder encoder = framingCodec.encoder();
 
         encoder.writeHeaders(http2HandlerCtx, 2, request, 31, false, channel.newPromise());
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(2);
+        Http2Stream stream = framingCodec.connection().stream(2);
         assertNotNull(stream);
         assertEquals(State.OPEN, stream.state());
 
@@ -341,7 +328,7 @@ public class Http2FrameCodecTest {
     public void streamClosedShouldFireUserEvent() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 31, false);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(3);
+        Http2Stream stream = framingCodec.connection().stream(3);
         assertNotNull(stream);
 
         frameListener.onRstStreamRead(http2HandlerCtx, 3, Http2Error.INTERNAL_ERROR.code());
@@ -365,7 +352,7 @@ public class Http2FrameCodecTest {
     public void streamErrorShouldFireUserEvent() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 31, false);
 
-        Http2Stream stream = framingCodec.connectionHandler().connection().stream(3);
+        Http2Stream stream = framingCodec.connection().stream(3);
         assertNotNull(stream);
 
         Http2StreamActiveEvent activeEvent = inboundHandler.readInboundMessagesAndEvents();
@@ -373,7 +360,7 @@ public class Http2FrameCodecTest {
         assertEquals(stream.id(), activeEvent.streamId());
 
         StreamException streamEx = new StreamException(3, Http2Error.INTERNAL_ERROR, "foo");
-        framingCodec.connectionHandler().onError(http2HandlerCtx, streamEx);
+        framingCodec.onError(http2HandlerCtx, streamEx);
 
         Http2HeadersFrame headersFrame = inboundHandler.readInboundMessagesAndEvents();
         assertNotNull(headersFrame);
@@ -396,7 +383,7 @@ public class Http2FrameCodecTest {
     public void windowUpdateFrameDecrementsConsumedBytes() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 31, false);
 
-        Http2Connection connection = framingCodec.connectionHandler().connection();
+        Http2Connection connection = framingCodec.connection();
         Http2Stream stream = connection.stream(3);
         assertNotNull(stream);
 
@@ -413,7 +400,7 @@ public class Http2FrameCodecTest {
     @Test
     public void windowUpdateMayFail() throws Exception {
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 31, false);
-        Http2Connection connection = framingCodec.connectionHandler().connection();
+        Http2Connection connection = framingCodec.connection();
         Http2Stream stream = connection.stream(3);
         assertNotNull(stream);
 

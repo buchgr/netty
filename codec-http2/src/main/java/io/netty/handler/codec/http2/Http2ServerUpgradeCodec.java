@@ -93,7 +93,7 @@ public class Http2ServerUpgradeCodec implements HttpServerUpgradeHandler.Upgrade
      * @param http2Codec the HTTP/2 multiplexing handler.
      */
     public Http2ServerUpgradeCodec(String handlerName, Http2Codec http2Codec) {
-        this(handlerName, http2Codec.frameCodec().connectionHandler(), http2Codec);
+        this(handlerName, http2Codec.frameCodec(), http2Codec);
     }
 
     Http2ServerUpgradeCodec(String handlerName, Http2ConnectionHandler connectionHandler,
