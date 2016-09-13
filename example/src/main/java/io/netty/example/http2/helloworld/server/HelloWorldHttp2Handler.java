@@ -48,22 +48,6 @@ public final class HelloWorldHttp2Handler extends Http2ConnectionHandler impleme
         super(decoder, encoder, initialSettings);
     }
 
-    /**
-     * Handles the cleartext HTTP upgrade event. If an upgrade occurred, sends a simple response via HTTP/2
-     * on stream 1 (the stream specifically reserved for cleartext HTTP upgrade).
-     */
-    @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        if (evt instanceof HttpServerUpgradeHandler.UpgradeEvent) {
-            // Write an HTTP/2 response to the upgrade request
-            Http2Headers headers =
-                    new DefaultHttp2Headers().status(OK.codeAsText())
-                    .set(new AsciiString(UPGRADE_RESPONSE_HEADER), new AsciiString("true"));
-            encoder().writeHeaders(ctx, 1, headers, 0, true, ctx.newPromise());
-        }
-        super.userEventTriggered(ctx, evt);
-    }
-
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
@@ -99,9 +83,8 @@ public final class HelloWorldHttp2Handler extends Http2ConnectionHandler impleme
     public void onHeadersRead(ChannelHandlerContext ctx, int streamId,
                               Http2Headers headers, int padding, boolean endOfStream) {
         if (endOfStream) {
-            ByteBuf content = ctx.alloc().buffer();
-            content.writeBytes(RESPONSE_BYTES.duplicate());
-            ByteBufUtil.writeAscii(content, " - via HTTP/2");
+            ByteBuf content = ctx.alloc().buffer(RESPONSE_BYTES.readableBytes());
+            content.writeBytes(RESPONSE_BYTES, 0, RESPONSE_BYTES.readableBytes());
             sendResponse(ctx, streamId, content);
         }
     }

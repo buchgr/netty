@@ -66,9 +66,8 @@ public class HelloWorldHttp2Handler extends ChannelInboundHandlerAdapter {
 
     private static void onHeadersRead(ChannelHandlerContext ctx, Http2HeadersFrame headers) {
         if (headers.isEndStream()) {
-            ByteBuf content = ctx.alloc().buffer(RESPONSE_BYTES.readableBytes() + 13);
+            ByteBuf content = ctx.alloc().buffer(RESPONSE_BYTES.readableBytes());
             content.writeBytes(RESPONSE_BYTES, 0, RESPONSE_BYTES.readableBytes());
-            ByteBufUtil.writeAscii(content, " - via HTTP/2");
             sendResponse(ctx, headers.getStreamId(), content);
         }
     }
