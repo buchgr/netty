@@ -18,7 +18,6 @@ package io.netty.handler.codec.http2;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.EventLoopGroup;
 import io.netty.util.internal.UnstableApi;
 
 /**
@@ -54,7 +53,9 @@ public final class Http2Codec extends ChannelDuplexHandler {
 
     // Visible for testing
     Http2Codec(boolean server, Http2StreamChannelBootstrap bootstrap, Http2FrameWriter frameWriter) {
-        frameCodec = new Http2FrameCodec(server, frameWriter);
+        frameCodec = server
+                ? Http2FrameCodecBuilder.forServer().frameWriter(frameWriter).build()
+                : Http2FrameCodecBuilder.forClient().frameWriter(frameWriter).build();
         multiplexCodec = new Http2MultiplexCodec(server, bootstrap);
     }
 

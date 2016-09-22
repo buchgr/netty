@@ -29,6 +29,7 @@ import io.netty.channel.ChannelPromiseNotifier;
 import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
 import io.netty.handler.codec.UnsupportedMessageTypeException;
+import io.netty.handler.codec.http2.Http2Exception.CompositeStreamException;
 import io.netty.handler.codec.http2.Http2Exception.StreamException;
 import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCountUtil;
@@ -47,6 +48,7 @@ import java.util.Map.Entry;
 
 import static io.netty.handler.codec.http2.AbstractHttp2StreamChannel.CLOSE_MESSAGE;
 import static io.netty.handler.codec.http2.Http2Error.STREAM_CLOSED;
+import static io.netty.handler.codec.http2.Http2Exception.isStreamError;
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
 import static java.lang.String.format;
 
@@ -106,22 +108,31 @@ public final class Http2MultiplexCodec extends ChannelDuplexHandler {
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) {
-        if (!(cause instanceof StreamException)) {
+        Http2Exception http2Ex = Http2CodecUtil.getEmbeddedHttp2Exception(cause);
+        if (isStreamError(http2Ex)) {
+            fireExceptionOnChildChannel((StreamException) http2Ex);
+        } else if (http2Ex instanceof CompositeStreamException) {
+            // Multiple exceptions for (different) streams wrapped in one exception.
+            CompositeStreamException compositeException = (CompositeStreamException) http2Ex;
+            for (StreamException streamException : compositeException) {
+                fireExceptionOnChildChannel(streamException);
+            }
+        } else {
             ctx.fireExceptionCaught(cause);
-            return;
         }
+    }
 
-        StreamException streamEx = (StreamException) cause;
+    private void fireExceptionOnChildChannel(StreamException e) {
         try {
-            Http2StreamChannel childChannel = childChannels.get(streamEx.streamId());
+            Http2StreamChannel childChannel = childChannels.get(e.streamId());
             if (childChannel != null) {
-                childChannel.pipeline().fireExceptionCaught(streamEx);
+                childChannel.pipeline().fireExceptionCaught(e);
             } else {
-                logger.warn(format("Exception caught for unknown HTTP/2 stream '%d'", streamEx.streamId()),
-                            streamEx);
+                // TODO(buchgr): This will also log if a stream gets multiple exceptions (as the first one closes it).
+                logger.warn(format("Exception caught for unknown HTTP/2 stream '%d'", e.streamId()), e);
             }
         } finally {
-            onStreamClosed(streamEx.streamId());
+            onStreamClosed(e.streamId());
         }
     }
 

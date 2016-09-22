@@ -76,7 +76,7 @@ public class Http2FrameCodecTest {
     @Before
     public void setUp() throws Exception {
         frameWriter = spy(new VerifiableHttp2FrameWriter());
-        framingCodec = new Http2FrameCodec(true, frameWriter);
+        framingCodec = Http2FrameCodecBuilder.forServer().frameWriter(frameWriter).build();
         frameListener = ((DefaultHttp2ConnectionDecoder) framingCodec.connectionHandler().decoder())
                 .internalFrameListener();
         inboundHandler = new LastInboundHandler();
@@ -95,6 +95,9 @@ public class Http2FrameCodecTest {
         frameListener.onSettingsRead(http2HandlerCtx, new Http2Settings());
         verify(frameWriter).writeSettingsAck(eq(http2HandlerCtx), anyChannelPromise());
         frameListener.onSettingsAckRead(http2HandlerCtx);
+
+        Http2SettingsFrame settingsFrame = inboundHandler.readInbound();
+        assertNotNull(settingsFrame);
     }
 
     @After
@@ -462,12 +465,33 @@ public class Http2FrameCodecTest {
 
         // Outgoing Streams
 
-        channel.write(new DefaultHttp2HeadersFrame(new DefaultHttp2Headers()));
+        channel.writeAndFlush(new DefaultHttp2HeadersFrame(new DefaultHttp2Headers()));
 
         activeEvent = inboundHandler.readUserEvent();
         assertNotNull(activeEvent);
         assertEquals(DEFAULT_WINDOW_SIZE, activeEvent.initialFlowControlWindow());
         assertNull(inboundHandler.readUserEvent());
+    }
+
+    @Test
+    public void streamZeroWindowUpdateIncrementsConnectionWindow() throws Exception {
+        Http2Connection connection = framingCodec.connectionHandler().connection();
+        Http2LocalFlowController localFlow = connection.local().flowController();
+        int initialWindowSizeBefore = localFlow.initialWindowSize();
+
+        int windowUpdate = 1024;
+
+        channel.write(new DefaultHttp2WindowUpdateFrame(windowUpdate).setStreamId(0));
+
+        assertEquals(initialWindowSizeBefore + windowUpdate, localFlow.initialWindowSize());
+    }
+
+    @Test
+    public void sendSettingsFrame() {
+        Http2Settings settings = new Http2Settings();
+        channel.write(new DefaultHttp2SettingsFrame(settings));
+
+        verify(frameWriter).writeSettings(eq(http2HandlerCtx), same(settings), any(ChannelPromise.class));
     }
 
     private static ChannelPromise anyChannelPromise() {

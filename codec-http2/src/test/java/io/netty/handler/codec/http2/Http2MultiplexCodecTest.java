@@ -49,7 +49,6 @@ import org.junit.Test;
 
 import static io.netty.util.ReferenceCountUtil.release;
 import static io.netty.util.ReferenceCountUtil.releaseLater;
-import static io.netty.util.ReferenceCountUtil.safeRelease;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
