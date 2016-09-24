@@ -102,7 +102,7 @@ public class Http2MultiplexCodecTest {
         LastInboundHandler inboundHandler = new LastInboundHandler();
         childChannelInitializer.handler = inboundHandler;
 
-        Http2StreamActiveEvent streamActive = new Http2StreamActiveEvent(incomingStreamId, initialWindowSize);
+        Http2OutgoingStreamActive streamActive = new Http2OutgoingStreamActive(incomingStreamId, initialWindowSize);
         Http2HeadersFrame headersFrame = new DefaultHttp2HeadersFrame(request).setStreamId(incomingStreamId);
         Http2DataFrame dataFrame1 = releaseLater(new DefaultHttp2DataFrame(bb("hello")).setStreamId(incomingStreamId));
         Http2DataFrame dataFrame2 = releaseLater(new DefaultHttp2DataFrame(bb("world")).setStreamId(incomingStreamId));
@@ -229,7 +229,7 @@ public class Http2MultiplexCodecTest {
         assertFalse(headersFrame.hasStreamId());
 
         parentChannel.pipeline().fireUserEventTriggered(
-                new Http2StreamActiveEvent(outgoingStreamId, initialWindowSize, headersFrame));
+                new Http2OutgoingStreamActive(outgoingStreamId, initialWindowSize, headersFrame));
 
         childChannel.close();
         parentChannel.runPendingTasks();
@@ -298,7 +298,7 @@ public class Http2MultiplexCodecTest {
         assertFalse(headersFrame.hasStreamId());
 
         parentChannel.pipeline().fireUserEventTriggered(
-                new Http2StreamActiveEvent(outgoingStreamId, initialWindowSize, headersFrame));
+                new Http2OutgoingStreamActive(outgoingStreamId, initialWindowSize, headersFrame));
 
         // Read from the child channel
         headers = new DefaultHttp2Headers().scheme("https").status("200");
@@ -391,7 +391,7 @@ public class Http2MultiplexCodecTest {
         assertNotNull(headers);
 
         parentChannel.pipeline().fireUserEventTriggered(
-                new Http2StreamActiveEvent(outgoingStreamId, initialWindowSize, headers));
+                new Http2OutgoingStreamActive(outgoingStreamId, initialWindowSize, headers));
         // Test for initial window size
         assertEquals(initialWindowSize, childChannel.getOutboundFlowControlWindow());
 
@@ -521,7 +521,7 @@ public class Http2MultiplexCodecTest {
         LastInboundHandler inboundHandler = new LastInboundHandler();
         childChannelInitializer.handler = inboundHandler;
         assertFalse(inboundHandler.channelActive);
-        parentChannel.pipeline().fireUserEventTriggered(new Http2StreamActiveEvent(streamId, initialWindowSize));
+        parentChannel.pipeline().fireUserEventTriggered(new Http2OutgoingStreamActive(streamId, initialWindowSize));
         assertTrue(inboundHandler.channelActive);
         parentChannel.pipeline().fireChannelRead(new DefaultHttp2HeadersFrame(request).setStreamId(streamId));
         parentChannel.pipeline().fireChannelReadComplete();

@@ -36,7 +36,7 @@ import io.netty.util.internal.UnstableApi;
  * objects received via {@link #write} are converted to the HTTP/2 wire format.
  *
  * <p>A change in stream state is propagated through the channel pipeline as a user event via
- * {@link Http2StreamStateEvent} objects. When a HTTP/2 stream first becomes active a {@link Http2StreamActiveEvent}
+ * {@link Http2StreamStateEvent} objects. When a HTTP/2 stream first becomes active a {@link Http2OutgoingStreamActive}
  * and when it gets closed a {@link Http2StreamClosedEvent} is emitted.
  *
  * <p>Server-side HTTP to HTTP/2 upgrade is supported in conjunction with {@link Http2ServerUpgradeCodec}; the necessary
@@ -74,12 +74,12 @@ import io.netty.util.internal.UnstableApi;
  *
  * <h3>Opening and Closing Streams</h3>
  *
- * <p>When the remote side opens a new stream, the frame codec first emits a {@link Http2StreamActiveEvent} with the
+ * <p>When the remote side opens a new stream, the frame codec first emits a {@link Http2OutgoingStreamActive} with the
  * stream identifier set.
  * <pre>
  * Http2FrameCodec                                             Http2MultiplexCodec
  *        +                                                             +
- *        |         Http2StreamActiveEvent(streamId=3, headers=null)    |
+ *        |         Http2OutgoingStreamActive(streamId=3, headers=null)    |
  *        +------------------------------------------------------------->
  *        |                                                             |
  *        |         Http2HeadersFrame(streamId=3)                       |
@@ -115,7 +115,7 @@ import io.netty.util.internal.UnstableApi;
  *
  * <p>Opening an outbound/local stream works by first sending the frame codec a {@link Http2HeadersFrame} with no
  * stream identifier set (such that {@link Http2HeadersFrame#hasStreamId()} returns false). If opening the stream
- * was successful, the frame codec responds with a {@link Http2StreamActiveEvent} that contains the stream's new
+ * was successful, the frame codec responds with a {@link Http2OutgoingStreamActive} that contains the stream's new
  * identifier as well as the <em>same</em> {@link Http2HeadersFrame} object that opened the stream.
  * <pre>
  * Http2FrameCodec                                                                               Http2MultiplexCodec
@@ -123,7 +123,7 @@ import io.netty.util.internal.UnstableApi;
  *        |         Http2HeadersFrame(streamId=-1)                                                        |
  *        <-----------------------------------------------------------------------------------------------+
  *        |                                                                                               |
- *        |         Http2StreamActiveEvent(streamId=2, headers=Http2HeadersFrame(streamId=-1))            |
+ *        |         Http2OutgoingStreamActive(streamId=2, headers=Http2HeadersFrame(streamId=-1))            |
  *        +----------------------------------------------------------------------------------------------->
  *        |                                                                                               |
  *        +                                                                                               +
@@ -344,31 +344,13 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if (future.isSuccess()) {
                             ctx.fireUserEventTriggered(
-                                    new Http2StreamActiveEvent(streamId, initialRemoteStreamWindow, headersFrame));
+                                    new Http2OutgoingStreamActive(streamId, initialRemoteStreamWindow, headersFrame));
                         }
                     }
                 });
     }
 
     private final class ConnectionListener extends Http2ConnectionAdapter {
-        @Override
-        public void onStreamActive(Http2Stream stream) {
-            if (ctx == null) {
-                // UPGRADE stream is active before handlerAdded().
-                return;
-            }
-            if (isOutbound(stream.id())) {
-                // Creation of outbound streams is notified in writeHeadersFrame().
-                return;
-            }
-            int flowControlWindow = http2Handler.connection().remote().flowController().windowSize(stream);
-            //ctx.fireUserEventTriggered(new Http2StreamActiveEvent(stream.id(), flowControlWindow));
-        }
-
-        @Override
-        public void onStreamClosed(Http2Stream stream) {
-            //ctx.fireUserEventTriggered(new Http2StreamClosedEvent(stream.id()));
-        }
 
         @Override
         public void onGoAwayReceived(final int lastStreamId, long errorCode, ByteBuf debugData) {

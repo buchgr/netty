@@ -23,16 +23,16 @@ import io.netty.util.internal.UnstableApi;
  * This event is emitted by the {@link Http2FrameCodec} when a stream becomes active.
  */
 @UnstableApi
-public class Http2StreamActiveEvent extends AbstractHttp2StreamStateEvent {
+public class Http2OutgoingStreamActive extends AbstractHttp2StreamStateEvent {
 
     private final int initialFlowControlWindow;
     private final Http2HeadersFrame headers;
 
-    public Http2StreamActiveEvent(int streamId, int initialFlowControlWindow) {
+    public Http2OutgoingStreamActive(int streamId, int initialFlowControlWindow) {
         this(streamId, initialFlowControlWindow, null);
     }
 
-    public Http2StreamActiveEvent(int streamId, int initialFlowControlWindow, Http2HeadersFrame headers) {
+    public Http2OutgoingStreamActive(int streamId, int initialFlowControlWindow, Http2HeadersFrame headers) {
         super(streamId);
         this.initialFlowControlWindow = ObjectUtil.checkPositive(initialFlowControlWindow, "initialFlowControlWindow");
         this.headers = headers;

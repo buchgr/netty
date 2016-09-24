@@ -19,13 +19,21 @@ package io.netty.handler.codec.http2;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
+import io.netty.handler.codec.http2.Http2Exception.CompositeStreamException;
+import io.netty.handler.codec.http2.Http2Exception.StreamException;
 import io.netty.util.collection.IntObjectHashMap;
+
+import static io.netty.handler.codec.http2.Http2Exception.isStreamError;
 
 /**
  * Automatically manages the lifecycle of streams. Allows to attach an object of type T to a stream. Cleans it up
  * automatically.
  */
 public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHandler {
+
+    public interface StreamVisitor<T> {
+        boolean visit(T managedState);
+    }
 
     // Visible for testing
     IntObjectHashMap<StreamInfo<T>> activeStreams;
@@ -49,6 +57,26 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
      */
     private int largestRemoteStreamIdentifier;
 
+    protected abstract void channelRead(ChannelHandlerContext ctx, Http2StreamFrame frame, T managedState)
+            throws Exception;
+
+    protected abstract void channelRead(ChannelHandlerContext ctx, Http2Frame frame) throws Exception;
+
+    protected abstract T onStreamActive(int streamId, Http2HeadersFrame firstHeaders) throws Exception;
+
+    protected abstract void onStreamClosed(T managedState) throws Exception;
+
+    protected abstract void onStreamError(Throwable cause, StreamException streamException, T managedState)
+            throws Exception;
+
+    protected final void forEachActiveStream(StreamVisitor<T> streamVisitor) {
+        for (StreamInfo<T> streamInfo : activeStreams.values()) {
+            if (!streamVisitor.visit(streamInfo.managedState)) {
+                break;
+            }
+        }
+    }
+
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
         activeStreams = new IntObjectHashMap<StreamInfo<T>>();
@@ -66,7 +94,7 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
     }
 
     @Override
-    public final void channelRead(ChannelHandlerContext ctx, Object msg) {
+    public final void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if (!(msg instanceof Http2Frame)) {
             ctx.fireChannelRead(msg);
             return;
@@ -79,17 +107,17 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
         final int streamId = streamFrame.getStreamId();
         final StreamInfo<T> streamInfo;
         if (isRemoteStream(streamId) && streamId > largestRemoteStreamIdentifier) {
-            streamInfo = new StreamInfo<T>(newManagedState(streamId));
+            streamInfo = new StreamInfo<T>(onStreamActive(streamId, null));
             activeStreams.put(streamId, streamInfo);
             largestRemoteStreamIdentifier = streamId;
         } else {
             streamInfo = activeStreams.get(streamId);
         }
         if (msg instanceof Http2ResetFrame) {
-            activeStreams.remove(streamId);
+            closeStream(streamInfo, streamId);
         } else {
             streamInfo.endOfStreamReceived |= endOfStreamSet(streamFrame);
-            removeStreamIfClosed(streamInfo, streamId);
+            tryCloseStream(streamInfo, streamId);
         }
 
         channelRead(ctx, streamFrame, streamInfo.managedState);
@@ -103,46 +131,76 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
             if (streamFrame.hasStreamId()) {
                 final StreamInfo<T> streamInfo = activeStreams.get(streamFrame.getStreamId());
                 streamInfo.endOfStreamSent = true;
-                removeStreamIfClosed(streamInfo, streamFrame.getStreamId());
+                tryCloseStream(streamInfo, streamFrame.getStreamId());
             }
         } else if (msg instanceof Http2ResetFrame) {
+            Http2StreamFrame streamFrame = (Http2StreamFrame) msg;
+            closeStream(activeStreams.get(streamFrame.getStreamId()), streamFrame.getStreamId());
             activeStreams.remove(((Http2StreamFrame) msg).getStreamId());
         }
+
         ctx.write(msg, promise);
     }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        if (!(evt instanceof Http2StreamActiveEvent)) {
+        if (!(evt instanceof Http2OutgoingStreamActive)) {
             super.userEventTriggered(ctx, evt);
             return;
         }
-        final Http2StreamActiveEvent streamActive = (Http2StreamActiveEvent) evt;
+        final Http2OutgoingStreamActive streamActive = (Http2OutgoingStreamActive) evt;
         final int streamId = streamActive.streamId();
         if (endPointMode == -1) {
             // This endpoint created this stream. We are a client if stream id is odd, and a server if it's even.
             endPointMode = streamId & 1;
         }
-        final StreamInfo<T> streamInfo = new StreamInfo<T>(newManagedState(streamId));
+        final StreamInfo<T> streamInfo = new StreamInfo<T>(onStreamActive(streamId, streamActive.headers()));
         activeStreams.put(streamId, streamInfo);
         streamInfo.endOfStreamSent = streamActive.headers().isEndStream();
     }
 
-    protected abstract void channelRead(ChannelHandlerContext ctx, Http2StreamFrame frame, T managedState);
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        Http2Exception http2Ex = Http2CodecUtil.getEmbeddedHttp2Exception(cause);
+        if (isStreamError(http2Ex)) {
+            StreamException streamException = (StreamException) http2Ex;
+            StreamInfo<T> streamInfo = activeStreams.get(streamException.streamId());
+            if (streamInfo != null) {
+                onStreamError(cause, streamException, streamInfo.managedState);
+            }
+        } else if (http2Ex instanceof CompositeStreamException) {
+            // Multiple exceptions for (different) streams wrapped in one exception.
+            CompositeStreamException compositeException = (CompositeStreamException) http2Ex;
+            for (StreamException streamException : compositeException) {
+                StreamInfo<T> streamInfo = activeStreams.get(streamException.streamId());
+                if (streamInfo != null) {
+                    onStreamError(cause, streamException, streamInfo.managedState);
+                }
+            }
+        } else {
+            ctx.fireExceptionCaught(cause);
+        }
+    }
 
-    protected abstract void channelRead(ChannelHandlerContext ctx, Http2Frame frame);
-
-    protected abstract T newManagedState(int streamId);
-
-    private void removeStreamIfClosed(StreamInfo<T> streamInfo, int streamId) {
+    private void tryCloseStream(StreamInfo<T> streamInfo, int streamId) {
         if (streamInfo != null && streamInfo.endOfStreamReceived && streamInfo.endOfStreamSent) {
-            activeStreams.remove(streamId);
+            closeStream(streamInfo, streamId);
         }
     }
 
     private static boolean endOfStreamSet(Object streamFrame) {
         return streamFrame instanceof Http2HeadersFrame && ((Http2HeadersFrame) streamFrame).isEndStream()
                || streamFrame instanceof Http2DataFrame && ((Http2DataFrame) streamFrame).isEndStream();
+    }
+
+    private void closeStream(StreamInfo<T> streamInfo, int streamId) {
+        try {
+            onStreamClosed(streamInfo.managedState);
+        } catch(Throwable t) {
+            // TODO log
+        } finally {
+            activeStreams.remove(streamId);
+        }
     }
 
     private boolean isRemoteStream(int streamId) {

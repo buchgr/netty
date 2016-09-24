@@ -203,7 +203,7 @@ public class Http2FrameCodecTest {
         assertNotNull(stream);
         assertEquals(State.OPEN, stream.state());
 
-        Http2StreamActiveEvent activeEvent = inboundHandler.readInboundMessagesAndEvents();
+        Http2OutgoingStreamActive activeEvent = inboundHandler.readInboundMessagesAndEvents();
         assertNotNull(activeEvent);
         assertEquals(stream.id(), activeEvent.streamId());
 
@@ -296,7 +296,7 @@ public class Http2FrameCodecTest {
         Http2HeadersFrame frame = inboundHandler.readInbound();
         assertNotNull(frame);
 
-        Http2StreamActiveEvent streamActiveEvent = inboundHandler.readUserEvent();
+        Http2OutgoingStreamActive streamActiveEvent = inboundHandler.readUserEvent();
         assertEquals(stream.id(), streamActiveEvent.streamId());
 
         assertNull(inboundHandler.readInbound());
@@ -352,7 +352,7 @@ public class Http2FrameCodecTest {
 
         assertEquals(State.CLOSED, stream.state());
 
-        Http2StreamActiveEvent activeEvent = inboundHandler.readUserEvent();
+        Http2OutgoingStreamActive activeEvent = inboundHandler.readUserEvent();
         assertEquals(stream.id(), activeEvent.streamId());
 
         Http2StreamClosedEvent closedEvent = inboundHandler.readUserEvent();
@@ -369,7 +369,7 @@ public class Http2FrameCodecTest {
         Http2Stream stream = framingCodec.connectionHandler().connection().stream(3);
         assertNotNull(stream);
 
-        Http2StreamActiveEvent activeEvent = inboundHandler.readInboundMessagesAndEvents();
+        Http2OutgoingStreamActive activeEvent = inboundHandler.readInboundMessagesAndEvents();
         assertNotNull(activeEvent);
         assertEquals(stream.id(), activeEvent.streamId());
 
@@ -458,7 +458,7 @@ public class Http2FrameCodecTest {
 
         frameListener.onHeadersRead(http2HandlerCtx, 3, request, 0, false);
 
-        Http2StreamActiveEvent activeEvent = inboundHandler.readUserEvent();
+        Http2OutgoingStreamActive activeEvent = inboundHandler.readUserEvent();
         assertNotNull(activeEvent);
         assertEquals(DEFAULT_WINDOW_SIZE, activeEvent.initialFlowControlWindow());
         assertNull(inboundHandler.readUserEvent());
