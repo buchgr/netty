@@ -102,7 +102,7 @@
 //        // What the Http2FrameCodec would respond.
 //        Http2HeadersFrame headersFrame = channel.readOutbound();
 //        assertNotNull(headersFrame);
-//        channel.pipeline().fireUserEventTriggered(new Http2OutgoingStreamActive(CLIENT_ID, 100, headersFrame));
+//        channel.pipeline().fireUserEventTriggered(new Http2OutboundStreamActiveEvent(CLIENT_ID, 100, headersFrame));
 //
 //        assertActiveStream(CLIENT_ID);
 //        // We created the stream, so we are the client.

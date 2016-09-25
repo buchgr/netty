@@ -13,19 +13,35 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
+
 package io.netty.handler.codec.http2;
 
+import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.UnstableApi;
 
 /**
- * An event describing a state change of a particular HTTP/2 stream. Such events
- * are typically emitted by channel handlers to exchange stream state information.
+ * User event emitted by the {@link Http2FrameCodec} when an outbound/local stream becomes active.
  */
 @UnstableApi
-public interface Http2StreamStateEvent {
+public class Http2OutboundStreamActiveEvent {
+
+    private final int streamId;
+    private final Http2HeadersFrame headers;
+
+    public Http2OutboundStreamActiveEvent(int streamId, Http2HeadersFrame headers) {
+        this.streamId = streamId;
+        this.headers = ObjectUtil.checkNotNull(headers, "headers");
+    }
 
     /**
-     * Returns the HTTP/2 stream identifier for this event.
+     * This method returns the <em>same</em> {@link Http2HeadersFrame} object as the one that
+     * made the stream active.
      */
-    int streamId();
+    public Http2HeadersFrame headers() {
+        return headers;
+    }
+
+    public int streamId() {
+        return streamId;
+    }
 }

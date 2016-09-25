@@ -26,8 +26,7 @@ import io.netty.util.collection.IntObjectHashMap;
 import static io.netty.handler.codec.http2.Http2Exception.isStreamError;
 
 /**
- * Automatically manages the lifecycle of streams. Allows to attach an object of type T to a stream. Cleans it up
- * automatically.
+ * Manages the stream lifecycle
  */
 public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHandler {
 
@@ -78,11 +77,10 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
     }
 
     @Override
-    public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+    public void handlerAdded(ChannelHandlerContext ctx) {
         activeStreams = new IntObjectHashMap<StreamInfo<T>>();
         endPointMode = -1;
         largestRemoteStreamIdentifier = 0;
-        super.handlerAdded(ctx);
     }
 
     @Override
@@ -90,7 +88,6 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
         activeStreams = null;
         endPointMode = -1;
         largestRemoteStreamIdentifier = 0;
-        super.handlerRemoved(ctx);
     }
 
     @Override
@@ -124,7 +121,7 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
     }
 
     @Override
-    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) throws Exception {
+    public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
         if (endOfStreamSet(msg) && ((Http2StreamFrame) msg).hasStreamId()) {
             Http2StreamFrame streamFrame = (Http2StreamFrame) msg;
             // Header frames initiating a new stream will not have a stream identifier set.
@@ -144,11 +141,11 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        if (!(evt instanceof Http2OutgoingStreamActive)) {
+        if (!(evt instanceof Http2OutboundStreamActiveEvent)) {
             super.userEventTriggered(ctx, evt);
             return;
         }
-        final Http2OutgoingStreamActive streamActive = (Http2OutgoingStreamActive) evt;
+        final Http2OutboundStreamActiveEvent streamActive = (Http2OutboundStreamActiveEvent) evt;
         final int streamId = streamActive.streamId();
         if (endPointMode == -1) {
             // This endpoint created this stream. We are a client if stream id is odd, and a server if it's even.

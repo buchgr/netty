@@ -203,10 +203,6 @@ public class Http2FrameCodecTest {
         assertNotNull(stream);
         assertEquals(State.OPEN, stream.state());
 
-        Http2OutgoingStreamActive activeEvent = inboundHandler.readInboundMessagesAndEvents();
-        assertNotNull(activeEvent);
-        assertEquals(stream.id(), activeEvent.streamId());
-
         Http2HeadersFrame expectedHeaders = new DefaultHttp2HeadersFrame(request, false, 31).setStreamId(stream.id());
         Http2HeadersFrame actualHeaders = inboundHandler.readInboundMessagesAndEvents();
         assertEquals(expectedHeaders, actualHeaders);
@@ -216,10 +212,6 @@ public class Http2FrameCodecTest {
         Http2ResetFrame expectedRst = new DefaultHttp2ResetFrame(Http2Error.NO_ERROR).setStreamId(stream.id());
         Http2ResetFrame actualRst = inboundHandler.readInboundMessagesAndEvents();
         assertEquals(expectedRst, actualRst);
-
-        Http2StreamClosedEvent closedEvent = inboundHandler.readInboundMessagesAndEvents();
-        assertNotNull(closedEvent);
-        assertEquals(stream.id(), closedEvent.streamId());
 
         assertNull(inboundHandler.readInboundMessagesAndEvents());
     }
@@ -296,9 +288,6 @@ public class Http2FrameCodecTest {
         Http2HeadersFrame frame = inboundHandler.readInbound();
         assertNotNull(frame);
 
-        Http2OutgoingStreamActive streamActiveEvent = inboundHandler.readUserEvent();
-        assertEquals(stream.id(), streamActiveEvent.streamId());
-
         assertNull(inboundHandler.readInbound());
         assertNull(inboundHandler.readUserEvent());
     }
@@ -352,12 +341,6 @@ public class Http2FrameCodecTest {
 
         assertEquals(State.CLOSED, stream.state());
 
-        Http2OutgoingStreamActive activeEvent = inboundHandler.readUserEvent();
-        assertEquals(stream.id(), activeEvent.streamId());
-
-        Http2StreamClosedEvent closedEvent = inboundHandler.readUserEvent();
-        assertEquals(stream.id(), closedEvent.streamId());
-
         assertNull(inboundHandler.readInbound());
         assertNull(inboundHandler.readUserEvent());
     }
@@ -368,10 +351,6 @@ public class Http2FrameCodecTest {
 
         Http2Stream stream = framingCodec.connectionHandler().connection().stream(3);
         assertNotNull(stream);
-
-        Http2OutgoingStreamActive activeEvent = inboundHandler.readInboundMessagesAndEvents();
-        assertNotNull(activeEvent);
-        assertEquals(stream.id(), activeEvent.streamId());
 
         StreamException streamEx = new StreamException(3, Http2Error.INTERNAL_ERROR, "foo");
         framingCodec.connectionHandler().onError(http2HandlerCtx, streamEx);
@@ -385,10 +364,6 @@ public class Http2FrameCodecTest {
         } catch (StreamException e) {
             assertEquals(streamEx, e);
         }
-
-        Http2StreamClosedEvent closedEvent = inboundHandler.readInboundMessagesAndEvents();
-        assertNotNull(closedEvent);
-        assertEquals(stream.id(), closedEvent.streamId());
 
         assertNull(inboundHandler.readInboundMessagesAndEvents());
     }
@@ -442,35 +417,6 @@ public class Http2FrameCodecTest {
 
         // Window update for the connection should not be forwarded.
         assertNull(inboundHandler.readInbound());
-    }
-
-    @Test
-    public void streamActiveShouldIncludeStreamFlowControlWindow() throws Http2Exception {
-        Http2Connection connection = framingCodec.connectionHandler().connection();
-
-        /**
-         * Connection and stream flow control window are both 65KiB. Change the connection window to make sure
-         * that our code uses the correct (stream) window.
-         */
-        connection.remote().flowController().incrementWindowSize(connection.connectionStream(), 1024);
-
-        // Incoming Streams
-
-        frameListener.onHeadersRead(http2HandlerCtx, 3, request, 0, false);
-
-        Http2OutgoingStreamActive activeEvent = inboundHandler.readUserEvent();
-        assertNotNull(activeEvent);
-        assertEquals(DEFAULT_WINDOW_SIZE, activeEvent.initialFlowControlWindow());
-        assertNull(inboundHandler.readUserEvent());
-
-        // Outgoing Streams
-
-        channel.writeAndFlush(new DefaultHttp2HeadersFrame(new DefaultHttp2Headers()));
-
-        activeEvent = inboundHandler.readUserEvent();
-        assertNotNull(activeEvent);
-        assertEquals(DEFAULT_WINDOW_SIZE, activeEvent.initialFlowControlWindow());
-        assertNull(inboundHandler.readUserEvent());
     }
 
     @Test

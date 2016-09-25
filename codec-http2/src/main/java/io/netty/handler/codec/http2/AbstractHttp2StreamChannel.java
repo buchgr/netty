@@ -136,6 +136,8 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
         return hasStreamId()
                // So that the channel doesn't become active before the initial flow control window has been set.
                && outboundFlowControlWindow > 0
+               // Could be null if channel closed.
+               && unsafe().outboundBuffer() != null
                && unsafe().outboundBuffer().isWritable();
     }
 

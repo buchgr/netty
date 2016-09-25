@@ -44,7 +44,6 @@ import java.util.Map.Entry;
 
 import static io.netty.handler.codec.http2.AbstractHttp2StreamChannel.CLOSE_MESSAGE;
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
-import static java.lang.String.format;
 
 /**
  * An HTTP/2 handler that creates child channels for each stream.
@@ -96,6 +95,8 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) {
+        super.handlerAdded(ctx);
+
         this.ctx = ctx;
         bootstrap.parentChannel(ctx.channel());
     }
@@ -374,7 +375,9 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
 
         @Override
         protected void bytesConsumed(final int bytes) {
-            ctx.write(new DefaultHttp2WindowUpdateFrame(bytes).setStreamId(getStreamId()));
+            Http2MultiplexCodec.super.write(ctx,
+                                            new DefaultHttp2WindowUpdateFrame(bytes).setStreamId(getStreamId()),
+                                            ctx.newPromise());
         }
 
         @Override
@@ -401,7 +404,7 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
 
     /**
      * Wraps the first {@link Http2HeadersFrame} of local/outbound stream. This allows us to get to the child channel
-     * when receiving the {@link Http2OutgoingStreamActive} from the frame codec. See {@link #onStreamActive}.
+     * when receiving the {@link Http2OutboundStreamActiveEvent} from the frame codec. See {@link #onStreamActive}.
      */
     private static final class ChannelCarryingHeadersFrame implements Http2HeadersFrame {
 

@@ -31,18 +31,72 @@ import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.UnstableApi;
 
 /**
- * An HTTP/2 handler that maps HTTP/2 frames to {@link Http2Frame} objects and vice versa. For every incoming HTTP/2
- * frame a {@link Http2Frame} object is created and propagated via {@link #channelRead}. Outbound {@link Http2Frame}
- * objects received via {@link #write} are converted to the HTTP/2 wire format.
+ * <p><em>This API is very immature.</em> The Http2Connection-based API is currently preferred over this API.
+ * This API is targeted to eventually replace or reduce the need for the {@link Http2ConnectionHandler} API.
  *
- * <p>A change in stream state is propagated through the channel pipeline as a user event via
- * {@link Http2StreamStateEvent} objects. When a HTTP/2 stream first becomes active a {@link Http2OutgoingStreamActive}
- * and when it gets closed a {@link Http2StreamClosedEvent} is emitted.
+ * <p>A HTTP/2 handler that maps HTTP/2 frames to {@link Http2Frame} objects and vice versa. For every incoming HTTP/2
+ * frame, a {@link Http2Frame} object is created and propagated via {@link #channelRead}. Outbound {@link Http2Frame}
+ * objects received via {@link #write} are converted to the HTTP/2 wire format. HTTP/2 frames specific to a stream
+ * implement the {@link Http2StreamFrame} interface. The {@link Http2FrameCodec} is instantiated using the
+ * {@link Http2FrameCodecBuilder}.
  *
- * <p>Server-side HTTP to HTTP/2 upgrade is supported in conjunction with {@link Http2ServerUpgradeCodec}; the necessary
- * HTTP-to-HTTP/2 conversion is performed automatically.
+ * <h3>Stream Lifecycle</h3>
  *
- * <p>Exceptions and errors are propagated via {@link ChannelInboundHandler#exceptionCaught}. An exception may be
+ * The frame codec delivers and writes frames for active streams. An active stream is closed when either side sends a
+ * {@code RST_STREAM} frame or both sides send a frame with the {@code END_STREAM} flag set. The frame codec does not
+ * offer help in maintaining additional state for active streams. A user can either choose to implement this himself,
+ * or have his handler derive from the {@link Http2ManagedStreamStateHandler}.
+ *
+ * <h3>Flow control</h3>
+ *
+ * The frame codec automatically increments stream and connection flow control windows. It's possible to customize
+ * when flow control windows are updated via {@link Http2FrameCodecBuilder#windowUpdateRatio(float)}.
+ *
+ * <p>Incoming flow controlled frames need to be consumed by writing a {@link Http2WindowUpdateFrame} with the consumed
+ * number of bytes and the corresponding stream identifier set to the frame codec.
+ *
+ * <p>The local stream-level flow control window can be changed by writing a {@link Http2SettingsFrame} with the
+ * {@link Http2Settings#initialWindowSize()} set to the targeted value.
+ *
+ * <p>The connection-level flow control window can be changed by writing a {@link Http2WindowUpdateFrame} with the
+ * desired window size <em>increment</em> in bytes and the stream identifier set to {@code 0}. By default the initial
+ * connection-level flow control window is the same as initial stream-level flow control window.
+ *
+ * <h3>Opening Outbound Streams</h3>
+ *
+ * Opening an outbound/local stream works by first write a {@link Http2HeadersFrame} with no stream identifier set (
+ * such that {@link Http2HeadersFrame#hasStreamId()} returns false). If opening the stream has been successful, the
+ * frame codec responds with a {@link Http2OutboundStreamActiveEvent} that contains the stream's new identifier as
+ * well as the <em>same</em> {@link Http2HeadersFrame} object that opened the stream (such that {@code ==} comparison
+ * returns {@code true}).
+ *
+ * <pre>
+ * {@link Http2FrameCodec}                                                                            YourChannelHandler
+ *        +                                                                                               +
+ *        |         Http2HeadersFrame(streamId=-1)                                                        |
+ *        <-----------------------------------------------------------------------------------------------+
+ *        |                                                                                               |
+ *        |         Http2OutboundStreamActiveEvent(streamId=2, headers=Http2HeadersFrame(streamId=-1))    |
+ *        +----------------------------------------------------------------------------------------------->
+ *        |                                                                                               |
+ *        +                                                                                               +
+ * </pre>
+ *
+ * <p>If a new stream cannot be created due to stream id exhaustion of the endpoint, the {@link ChannelPromise} of the
+ * HEADERS frame will fail with a {@link Http2NoMoreStreamIdsException}.
+ *
+ * <p>The HTTP/2 standard allows for an endpoint to limit the maximum number of concurrently active streams via the
+ * {@code SETTINGS_MAX_CONCURRENT_STREAMS} setting. When this limit is reached, no new streams can be created. However,
+ * the {@link Http2FrameCodec} can be build with {@link Http2FrameCodecBuilder#bufferOutgoingStreams} enabled, in which
+ * case a new stream and its associated frames will be buffered until either the limit is increased or an active
+ * stream is closed. It's, however, possible that a buffered stream will never become active. That is, the channel might
+ * get closed or a GO_AWAY frame might be received. In the first case, all writes of buffered streams will fail with a
+ * {@link Http2ChannelClosedException}. In the second case, all writes of buffered streams with an identifier less than
+ * the last stream identifier of the GO_AWAY frame will fail with a {@link Http2GoAwayException}.
+ *
+ * <h3>Error Handling</h3>
+ *
+ * Exceptions and errors are propagated via {@link ChannelInboundHandler#exceptionCaught}. An exception may be
  * generic, apply to the HTTP/2 connection or even a specific HTTP/2 stream. It's possible and encouraged to handle
  * those cases differently:
  *
@@ -69,78 +123,10 @@ import io.netty.util.internal.UnstableApi;
  * }
  * </pre>
  *
- * <p><em>This API is very immature.</em> The Http2Connection-based API is currently preferred over
- * this API. This API is targeted to eventually replace or reduce the need for the Http2Connection-based API.
+ * <h3>HTTP Upgrade</h3>
  *
- * <h3>Opening and Closing Streams</h3>
- *
- * <p>When the remote side opens a new stream, the frame codec first emits a {@link Http2OutgoingStreamActive} with the
- * stream identifier set.
- * <pre>
- * Http2FrameCodec                                             Http2MultiplexCodec
- *        +                                                             +
- *        |         Http2OutgoingStreamActive(streamId=3, headers=null)    |
- *        +------------------------------------------------------------->
- *        |                                                             |
- *        |         Http2HeadersFrame(streamId=3)                       |
- *        +------------------------------------------------------------->
- *        |                                                             |
- *        +                                                             +
- * </pre>
- *
- * <p>When a stream is closed either due to a reset frame by the remote side, or due to both sides having sent frames
- * with the END_STREAM flag, then the frame codec emits a {@link Http2StreamClosedEvent}.
- * <pre>
- * Http2FrameCodec                                         Http2MultiplexCodec
- *        +                                                         +
- *        |         Http2StreamClosedEvent(streamId=3)              |
- *        +--------------------------------------------------------->
- *        |                                                         |
- *        +                                                         +
- * </pre>
- *
- * <p>When the local side wants to close a stream, it has to write a {@link Http2ResetFrame} to which the frame codec
- * will respond to with a {@link Http2StreamClosedEvent}.
- * <pre>
- * Http2FrameCodec                                         Http2MultiplexCodec
- *        +                                                         +
- *        |         Http2ResetFrame(streamId=3)                     |
- *        <---------------------------------------------------------+
- *        |                                                         |
- *        |         Http2StreamClosedEvent(streamId=3)              |
- *        +--------------------------------------------------------->
- *        |                                                         |
- *        +                                                         +
- * </pre>
- *
- * <p>Opening an outbound/local stream works by first sending the frame codec a {@link Http2HeadersFrame} with no
- * stream identifier set (such that {@link Http2HeadersFrame#hasStreamId()} returns false). If opening the stream
- * was successful, the frame codec responds with a {@link Http2OutgoingStreamActive} that contains the stream's new
- * identifier as well as the <em>same</em> {@link Http2HeadersFrame} object that opened the stream.
- * <pre>
- * Http2FrameCodec                                                                               Http2MultiplexCodec
- *        +                                                                                               +
- *        |         Http2HeadersFrame(streamId=-1)                                                        |
- *        <-----------------------------------------------------------------------------------------------+
- *        |                                                                                               |
- *        |         Http2OutgoingStreamActive(streamId=2, headers=Http2HeadersFrame(streamId=-1))            |
- *        +----------------------------------------------------------------------------------------------->
- *        |                                                                                               |
- *        +                                                                                               +
- * </pre>
- *
- * <p>If a new stream cannot be created due to stream id exhaustion of the endpoint, the {@link ChannelPromise} of the
- * HEADERS frame will fail with a {@link Http2NoMoreStreamIdsException}.
- *
- * <p>The HTTP/2 standard allows for an endpoint to limit the maximum number of concurrently active streams via the
- * {@code SETTINGS_MAX_CONCURRENT_STREAMS} setting. When this limit is reached, no new streams can be created. However,
- * the {@link Http2FrameCodec} can be build with {@link Http2FrameCodecBuilder#bufferOutgoingStreams} enabled, in which
- * case a new stream and its associated frames will be buffered until either the limit is increased or an active
- * stream is closed.
- * It's, however, possible that a buffered stream will never become active. That is, the channel might get closed or
- * a GO_AWAY frame might be received. In the first case, all writes of buffered streams will fail with a
- * {@link Http2ChannelClosedException}. In the second case, all writes of buffered streams with an identifier less than
- * the last stream identifier of the GO_AWAY frame will fail with a {@link Http2GoAwayException}.
+ * Server-side HTTP to HTTP/2 upgrade is supported in conjunction with {@link Http2ServerUpgradeCodec}; the necessary
+ * HTTP-to-HTTP/2 conversion is performed automatically.
  */
 @UnstableApi
 public class Http2FrameCodec extends ChannelDuplexHandler {
@@ -149,8 +135,6 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
     private final boolean server;
     // Used to adjust flow control window on channel active. Set to null afterwards.
     private Integer initialLocalConnectionWindow;
-    // The initial stream flow control window of a remote stream.
-    private int initialRemoteStreamWindow;
 
     private ChannelHandlerContext ctx;
     private ChannelHandlerContext http2HandlerCtx;
@@ -166,7 +150,6 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
         http2Handler.gracefulShutdownTimeoutMillis(gracefulShutdownTimeoutMillis);
         server = http2Handler.connection().isServer();
         initialLocalConnectionWindow = initialSettings.initialWindowSize();
-        initialRemoteStreamWindow = Http2CodecUtil.DEFAULT_WINDOW_SIZE;
     }
 
     Http2ConnectionHandler connectionHandler() {
@@ -344,14 +327,13 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
                     public void operationComplete(ChannelFuture future) throws Exception {
                         if (future.isSuccess()) {
                             ctx.fireUserEventTriggered(
-                                    new Http2OutgoingStreamActive(streamId, initialRemoteStreamWindow, headersFrame));
+                                    new Http2OutboundStreamActiveEvent(streamId, headersFrame));
                         }
                     }
                 });
     }
 
     private final class ConnectionListener extends Http2ConnectionAdapter {
-
         @Override
         public void onGoAwayReceived(final int lastStreamId, long errorCode, ByteBuf debugData) {
             ctx.fireChannelRead(new DefaultHttp2GoAwayFrame(lastStreamId, errorCode, debugData.retain()));
@@ -387,9 +369,6 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
     private final class FrameListener extends Http2FrameAdapter {
         @Override
         public void onSettingsRead(ChannelHandlerContext ctx, Http2Settings settings) {
-            if (settings.initialWindowSize() != null) {
-                initialRemoteStreamWindow = settings.initialWindowSize();
-            }
             ctx.fireChannelRead(new DefaultHttp2SettingsFrame(settings));
         }
 
@@ -444,10 +423,5 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
             // We return the bytes in consumeBytes() once the stream channel consumed the bytes.
             return 0;
         }
-    }
-
-    private boolean isOutbound(int streamId) {
-        boolean even = (streamId & 1) == 0;
-        return streamId > 0 && server == even;
     }
 }
