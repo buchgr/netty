@@ -135,7 +135,8 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
     }
 
     @Override
-    protected Http2StreamChannel onStreamActive(int streamId, Http2HeadersFrame headersFrame) {
+    protected Http2StreamChannel onStreamActive(ChannelHandlerContext ctx, int streamId,
+                                                Http2HeadersFrame headersFrame) {
         final Http2StreamChannel childChannel;
         if (isOutbound(streamId)) {
             if (!(headersFrame instanceof ChannelCarryingHeadersFrame)) {
@@ -151,14 +152,19 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
         assert !childChannel.isWritable();
         childChannel.incrementOutboundFlowControlWindow(initialOutboundStreamWindow);
         childChannel.pipeline().fireChannelWritabilityChanged();
-        // Frames will be buffered in the child channel until the stream becomes active.
-        childChannel.flush();
 
+        if (isOutbound(streamId)) {
+            // Frames will be buffered in the child channel until the stream becomes active.
+            childChannel.flush();
+        } else {
+            // The first HEADERS frame is only delivered here and not via channelRead.
+            fireChildReadAndRegister(childChannel, headersFrame);
+        }
         return childChannel;
     }
 
     @Override
-    protected void onStreamClosed(final Http2StreamChannel childChannel) {
+    protected void onStreamClosed(ChannelHandlerContext ctx, int streamId, final Http2StreamChannel childChannel) {
         final EventLoop eventLoop = childChannel.eventLoop();
         if (eventLoop.inEventLoop()) {
             streamClosed0(childChannel);
@@ -173,19 +179,19 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
     }
 
     @Override
-    protected void onStreamError(Throwable cause, StreamException streamException, Http2StreamChannel childChannel)
-            throws Exception {
+    protected void onStreamError(ChannelHandlerContext ctx, Throwable cause, StreamException streamException,
+                                 Http2StreamChannel childChannel) {
         try {
             childChannel.pipeline().fireExceptionCaught(streamException);
         } finally {
             Http2Error error = streamException.error();
             int streamId = streamException.streamId();
-            writeFrame(new DefaultHttp2ResetFrame(error).setStreamId(streamId));
+            ctx.write(new DefaultHttp2ResetFrame(error).setStreamId(streamId));
         }
     }
 
     @Override
-    protected void onConnectionError(Throwable cause, Http2Exception http2Ex) {
+    protected void onConnectionError(ChannelHandlerContext ctx, Throwable cause, Http2Exception http2Ex) {
         // TODO: None stream related error. Should we close?
         ctx.fireExceptionCaught(cause);
     }
@@ -251,7 +257,7 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
 
     private void writeFromStreamChannel0(Http2Frame frame, boolean flush, ChannelPromise promise) {
         try {
-            writeFrame(frame, promise);
+            ctx.write(frame, promise);
         } catch (Throwable cause) {
             promise.tryFailure(cause);
         }
@@ -383,7 +389,7 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
 
         @Override
         protected void bytesConsumed(final int bytes) {
-            writeFrame(new DefaultHttp2WindowUpdateFrame(bytes).setStreamId(getStreamId()));
+            ctx.write(new DefaultHttp2WindowUpdateFrame(bytes).setStreamId(getStreamId()));
         }
 
         @Override

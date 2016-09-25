@@ -319,18 +319,18 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
                 return;
             }
             headersFrame.setStreamId(streamId);
+            promise.addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+                    if (future.isSuccess()) {
+                        ctx.fireUserEventTriggered(
+                                new Http2OutboundStreamActiveEvent(streamId, headersFrame));
+                    }
+                }
+            });
         }
         http2Handler.encoder().writeHeaders(http2HandlerCtx, streamId, headersFrame.headers(), headersFrame.padding(),
-                                            headersFrame.isEndStream(), promise)
-                .addListener(new ChannelFutureListener() {
-                    @Override
-                    public void operationComplete(ChannelFuture future) throws Exception {
-                        if (future.isSuccess()) {
-                            ctx.fireUserEventTriggered(
-                                    new Http2OutboundStreamActiveEvent(streamId, headersFrame));
-                        }
-                    }
-                });
+                                            headersFrame.isEndStream(), promise);
     }
 
     private final class ConnectionListener extends Http2ConnectionAdapter {
