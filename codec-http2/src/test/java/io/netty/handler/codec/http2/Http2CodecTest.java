@@ -29,6 +29,7 @@ import io.netty.channel.embedded.EmbeddedChannel;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.net.InetSocketAddress;
 
@@ -108,13 +109,14 @@ public class Http2CodecTest {
         assertTrue(childChannel.isActive());
 
         Http2Headers headers = new DefaultHttp2Headers();
-        childChannel.write(new DefaultHttp2HeadersFrame(headers));
+        childChannel.writeAndFlush(new DefaultHttp2HeadersFrame(headers));
         ByteBuf data = Unpooled.buffer(100).writeZero(100);
         childChannel.writeAndFlush(new DefaultHttp2DataFrame(data));
         verify(frameWriter).writeHeaders(any(ChannelHandlerContext.class), eq(2), eq(headers), anyInt(), anyShort(),
                                          eq(false), eq(0), eq(false), any(ChannelPromise.class));
         verify(frameWriter).writeData(any(ChannelHandlerContext.class), eq(2), eq(data), eq(0), eq(false),
                                       any(ChannelPromise.class));
+
         childChannel.close();
         verify(frameWriter).writeRstStream(any(ChannelHandlerContext.class), eq(2), eq(Http2Error.CANCEL.code()),
                                            any(ChannelPromise.class));

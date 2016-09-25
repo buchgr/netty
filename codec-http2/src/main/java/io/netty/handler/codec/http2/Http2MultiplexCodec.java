@@ -151,6 +151,8 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
         assert !childChannel.isWritable();
         childChannel.incrementOutboundFlowControlWindow(initialOutboundStreamWindow);
         childChannel.pipeline().fireChannelWritabilityChanged();
+        // Frames will be buffered in the child channel until the stream becomes active.
+        childChannel.flush();
 
         return childChannel;
     }
@@ -178,8 +180,14 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
         } finally {
             Http2Error error = streamException.error();
             int streamId = streamException.streamId();
-            write(ctx, new DefaultHttp2ResetFrame(error).setStreamId(streamId), ctx.newPromise());
+            writeFrame(new DefaultHttp2ResetFrame(error).setStreamId(streamId));
         }
+    }
+
+    @Override
+    protected void onConnectionError(Throwable cause, Http2Exception http2Ex) {
+        // TODO: None stream related error. Should we close?
+        ctx.fireExceptionCaught(cause);
     }
 
     @Override
@@ -223,16 +231,16 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
         }
     }
 
-    void writeFromStreamChannel(final Object msg, final ChannelPromise promise, final boolean flush) {
+    void writeFromStreamChannel(final Http2Frame frame, final ChannelPromise promise, final boolean flush) {
         EventExecutor executor = ctx.executor();
         if (executor.inEventLoop()) {
-            writeFromStreamChannel0(msg, flush, promise);
+            writeFromStreamChannel0(frame, flush, promise);
         } else {
             try {
                 executor.execute(new Runnable() {
                     @Override
                     public void run() {
-                        writeFromStreamChannel0(msg, flush, promise);
+                        writeFromStreamChannel0(frame, flush, promise);
                     }
                 });
             } catch (Throwable cause) {
@@ -241,9 +249,9 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
         }
     }
 
-    private void writeFromStreamChannel0(Object msg, boolean flush, ChannelPromise promise) {
+    private void writeFromStreamChannel0(Http2Frame frame, boolean flush, ChannelPromise promise) {
         try {
-            write(ctx, msg, promise);
+            writeFrame(frame, promise);
         } catch (Throwable cause) {
             promise.tryFailure(cause);
         }
@@ -375,9 +383,7 @@ public final class Http2MultiplexCodec extends Http2ManagedStreamStateHandler<Ht
 
         @Override
         protected void bytesConsumed(final int bytes) {
-            Http2MultiplexCodec.super.write(ctx,
-                                            new DefaultHttp2WindowUpdateFrame(bytes).setStreamId(getStreamId()),
-                                            ctx.newPromise());
+            writeFrame(new DefaultHttp2WindowUpdateFrame(bytes).setStreamId(getStreamId()));
         }
 
         @Override

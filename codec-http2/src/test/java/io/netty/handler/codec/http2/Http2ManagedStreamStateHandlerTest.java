@@ -164,13 +164,18 @@ public class Http2ManagedStreamStateHandlerTest {
 
         @Override
         protected void onStreamClosed(TestState managedState) {
-
+            // NOOP
         }
 
         @Override
         protected void onStreamError(Throwable cause, StreamException streamException, TestState managedState)
                 throws Exception {
+            // NOOP
+        }
 
+        @Override
+        protected void onConnectionError(Throwable cause, Http2Exception http2Ex) {
+            // NOOP
         }
     }
 

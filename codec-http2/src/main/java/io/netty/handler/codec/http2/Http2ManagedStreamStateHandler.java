@@ -17,6 +17,7 @@
 package io.netty.handler.codec.http2;
 
 import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.handler.codec.http2.Http2Exception.CompositeStreamException;
@@ -26,7 +27,7 @@ import io.netty.util.collection.IntObjectHashMap;
 import static io.netty.handler.codec.http2.Http2Exception.isStreamError;
 
 /**
- * Manages the stream lifecycle
+ * Foooooo bar.
  */
 public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHandler {
 
@@ -56,6 +57,8 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
      */
     private int largestRemoteStreamIdentifier;
 
+    private ChannelHandlerContext ctx;
+
     protected abstract void channelRead(ChannelHandlerContext ctx, Http2StreamFrame frame, T managedState)
             throws Exception;
 
@@ -67,6 +70,25 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
 
     protected abstract void onStreamError(Throwable cause, StreamException streamException, T managedState)
             throws Exception;
+
+    protected abstract void onConnectionError(Throwable cause, Http2Exception http2Ex);
+
+    protected ChannelFuture writeFrame(Http2Frame frame) {
+        return writeFrame(frame, ctx.newPromise());
+    }
+
+    protected ChannelFuture writeFrame(Http2Frame frame, ChannelPromise promise) {
+        write0(ctx, frame, promise);
+        return promise;
+    }
+
+    protected T managedState(int streamId) {
+        final StreamInfo<T> streamInfo = activeStreams.get(streamId);
+        if (streamInfo != null) {
+            return streamInfo.managedState;
+        }
+        return null;
+    }
 
     protected final void forEachActiveStream(StreamVisitor<T> streamVisitor) {
         for (StreamInfo<T> streamInfo : activeStreams.values()) {
@@ -81,6 +103,7 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
         activeStreams = new IntObjectHashMap<StreamInfo<T>>();
         endPointMode = -1;
         largestRemoteStreamIdentifier = 0;
+        this.ctx = ctx;
     }
 
     @Override
@@ -88,6 +111,7 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
         activeStreams = null;
         endPointMode = -1;
         largestRemoteStreamIdentifier = 0;
+        this.ctx = null;
     }
 
     @Override
@@ -104,12 +128,16 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
         final int streamId = streamFrame.getStreamId();
         final StreamInfo<T> streamInfo;
         if (isRemoteStream(streamId) && streamId > largestRemoteStreamIdentifier) {
-            streamInfo = new StreamInfo<T>(onStreamActive(streamId, null));
+            if (!(msg instanceof Http2HeadersFrame)) {
+                throw new IllegalStateException("The first frame must be HEADERS.");
+            }
+            streamInfo = new StreamInfo<T>(onStreamActive(streamId, (Http2HeadersFrame) msg));
             activeStreams.put(streamId, streamInfo);
             largestRemoteStreamIdentifier = streamId;
-        } else {
-            streamInfo = activeStreams.get(streamId);
+            return;
         }
+
+        streamInfo = activeStreams.get(streamId);
         if (msg instanceof Http2ResetFrame) {
             closeStream(streamInfo, streamId);
         } else {
@@ -122,6 +150,10 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
 
     @Override
     public void write(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
+        write0(ctx, msg, promise);
+    }
+
+    private void write0(ChannelHandlerContext ctx, Object msg, ChannelPromise promise) {
         if (endOfStreamSet(msg) && ((Http2StreamFrame) msg).hasStreamId()) {
             Http2StreamFrame streamFrame = (Http2StreamFrame) msg;
             // Header frames initiating a new stream will not have a stream identifier set.
@@ -140,7 +172,7 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
     }
 
     @Override
-    public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+    public final void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
         if (!(evt instanceof Http2OutboundStreamActiveEvent)) {
             super.userEventTriggered(ctx, evt);
             return;
@@ -157,7 +189,7 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
     }
 
     @Override
-    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+    public final void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         Http2Exception http2Ex = Http2CodecUtil.getEmbeddedHttp2Exception(cause);
         if (isStreamError(http2Ex)) {
             StreamException streamException = (StreamException) http2Ex;
@@ -175,7 +207,7 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
                 }
             }
         } else {
-            ctx.fireExceptionCaught(cause);
+            onConnectionError(cause, http2Ex);
         }
     }
 
@@ -193,7 +225,7 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
     private void closeStream(StreamInfo<T> streamInfo, int streamId) {
         try {
             onStreamClosed(streamInfo.managedState);
-        } catch(Throwable t) {
+        } catch (Throwable t) {
             // TODO log
         } finally {
             activeStreams.remove(streamId);

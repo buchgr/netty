@@ -89,6 +89,8 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
     private volatile int streamId = -1;
     private boolean closed;
     private boolean readInProgress;
+    /** {@code false} until the first headers frame has been written on the parent channel. **/
+    private boolean firstHeadersWritten;
 
     /**
      * The flow control window of the remote side i.e. the number of bytes this channel is allowed to send to the remote
@@ -224,6 +226,14 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
                 in.remove();
                 continue;
             }
+            if (!hasStreamId() && firstHeadersWritten) {
+                /**
+                 * Only the stream-initiating first HEADERS frame is flushed to the parent channel, until the
+                 * stream becomes active.
+                 */
+                return;
+            }
+            firstHeadersWritten = true;
             final int bytes = sizeEstimator.size(msg);
             /**
              * The flow control window needs to be decrement before stealing the message from the buffer (and thereby
