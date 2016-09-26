@@ -127,24 +127,28 @@ public class Http2MultiplexCodecTest {
         assertNull(inboundHandler.readInbound());
     }
 
-//    @Test
-//    public void framesShouldBeMultiplexed() {
-//        LastInboundHandler inboundHandler3 = streamActiveAndWriteHeaders(3);
-//        LastInboundHandler inboundHandler5 = streamActiveAndWriteHeaders(5);
-//        LastInboundHandler inboundHandler11 = streamActiveAndWriteHeaders(11);
-//
-//        verifyFramesMultiplexedToCorrectChannel(3, inboundHandler3, 1);
-//        verifyFramesMultiplexedToCorrectChannel(5, inboundHandler5, 1);
-//        verifyFramesMultiplexedToCorrectChannel(11, inboundHandler11, 1);
-//
-//        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("hello"), false).setStreamId(5));
-//        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("foo"), true).setStreamId(3));
-//        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("world"), true).setStreamId(5));
-//        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("bar"), true).setStreamId(11));
-//        verifyFramesMultiplexedToCorrectChannel(5, inboundHandler5, 2);
-//        verifyFramesMultiplexedToCorrectChannel(3, inboundHandler3, 1);
-//        verifyFramesMultiplexedToCorrectChannel(11, inboundHandler11, 1);
-//    }
+    @Test
+    public void framesShouldBeMultiplexed() {
+        Http2Stream2<Void> stream3 = new Http2Stream2<Void>(false).id(3);
+        Http2Stream2<Void> stream5 = new Http2Stream2<Void>(false).id(5);
+        Http2Stream2<Void> stream11 = new Http2Stream2<Void>(false).id(11);
+
+        LastInboundHandler inboundHandler3 = streamActiveAndWriteHeaders(stream3);
+        LastInboundHandler inboundHandler5 = streamActiveAndWriteHeaders(stream5);
+        LastInboundHandler inboundHandler11 = streamActiveAndWriteHeaders(stream11);
+
+        verifyFramesMultiplexedToCorrectChannel(stream3, inboundHandler3, 1);
+        verifyFramesMultiplexedToCorrectChannel(stream5, inboundHandler5, 1);
+        verifyFramesMultiplexedToCorrectChannel(stream11, inboundHandler11, 1);
+
+        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("hello"), false).stream(stream5));
+        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("foo"), true).stream(stream3));
+        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("world"), true).stream(stream5));
+        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("bar"), true).stream(stream11));
+        verifyFramesMultiplexedToCorrectChannel(stream5, inboundHandler5, 2);
+        verifyFramesMultiplexedToCorrectChannel(stream3, inboundHandler3, 1);
+        verifyFramesMultiplexedToCorrectChannel(stream11, inboundHandler11, 1);
+    }
 
     @Test
     public void inboundDataFrameShouldEmitWindowUpdateFrame() {
