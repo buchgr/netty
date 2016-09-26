@@ -24,6 +24,9 @@ import io.netty.handler.codec.http2.Http2Exception.CompositeStreamException;
 import io.netty.handler.codec.http2.Http2Exception.StreamException;
 import io.netty.util.collection.IntObjectHashMap;
 
+import java.util.ArrayDeque;
+import java.util.Queue;
+
 import static io.netty.handler.codec.http2.Http2Exception.isStreamError;
 
 /**
@@ -60,6 +63,8 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
     private ChannelHandlerContext ctx;
 
     private final ChannelHandler writeHandler = new WriteHandler();
+
+    private Queue<T> pendingStreams = new ArrayDeque<T>(4);
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) {
@@ -100,17 +105,16 @@ public abstract class Http2ManagedStreamStateHandler<T> extends ChannelDuplexHan
         }
 
         final StreamInfo<T> streamInfo = requireStreamInfo(streamId);
-
-        if (streamFrame instanceof Http2ResetFrame) {
-            closeStream(streamInfo, streamId);
-            return;
-        }
-
         try {
             channelRead(ctx, streamFrame, streamInfo.managedState);
         } finally {
-            streamInfo.endOfStreamReceived |= endOfStreamSet(streamFrame);
-            tryCloseStream(streamInfo, streamId);
+            if (streamFrame instanceof Http2ResetFrame) {
+                closeStream(streamInfo, streamId);
+            } else {
+                streamInfo.endOfStreamReceived |= endOfStreamSet(streamFrame);
+
+                tryCloseStream(streamInfo, streamId);
+            }
         }
     }
 
