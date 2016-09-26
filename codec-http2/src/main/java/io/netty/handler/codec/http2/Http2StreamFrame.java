@@ -26,24 +26,7 @@ import io.netty.util.internal.UnstableApi;
 @UnstableApi
 public interface Http2StreamFrame extends Http2Frame {
 
-    /**
-     * Sets the identifier of the stream this frame applies to. This method may be called at most once.
-     *
-     * <p><em>NOTE:</em> This method is supposed to be called by the HTTP/2 transport only. It must not be called by
-     * users.
-     *
-     * @return {@code this}
-     */
-    Http2StreamFrame setStreamId(int streamId);
+    <V> Http2StreamFrame stream(Http2Stream2<V> stream);
 
-    /**
-     * The identifier of the stream this frame applies to.
-     *
-     * @return {@code 0} if the frame applies to the entire connection, a value greater than {@code 0} if the frame
-     * applies to a particular stream, or a value less than {@code 0} if the frame has yet to be associated with
-     * the connection or a stream.
-     */
-    int getStreamId();
-
-    boolean hasStreamId();
+    <V> Http2Stream2<V> stream();
 }

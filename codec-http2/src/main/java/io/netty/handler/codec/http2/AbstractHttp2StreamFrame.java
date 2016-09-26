@@ -24,26 +24,18 @@ import io.netty.util.internal.UnstableApi;
 @UnstableApi
 public abstract class AbstractHttp2StreamFrame implements Http2StreamFrame {
 
-    // Volatile as parent and child channel may be on different eventloops.
-    private volatile int streamId = -1;
+    private volatile Http2Stream2<?> stream;
 
     @Override
-    public AbstractHttp2StreamFrame setStreamId(int streamId) {
-        if (this.streamId != -1) {
-            throw new IllegalStateException("Stream identifier may only be set once.");
-        }
-        this.streamId = ObjectUtil.checkPositiveOrZero(streamId, "streamId");
+    public <V> AbstractHttp2StreamFrame stream(Http2Stream2<V> stream) {
+        this.stream = stream;
         return this;
     }
 
     @Override
-    public int getStreamId() {
-        return streamId;
-    }
-
-    @Override
-    public boolean hasStreamId() {
-        return streamId != -1;
+    @SuppressWarnings("unchecked")
+    public <V> Http2Stream2<V> stream() {
+        return (Http2Stream2<V>) stream;
     }
 
     /**
@@ -55,11 +47,11 @@ public abstract class AbstractHttp2StreamFrame implements Http2StreamFrame {
             return false;
         }
         Http2StreamFrame other = (Http2StreamFrame) o;
-        return streamId == other.getStreamId();
+        return stream == other.stream();
     }
 
     @Override
     public int hashCode() {
-        return streamId;
+        return stream.hashCode();
     }
 }

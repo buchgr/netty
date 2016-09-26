@@ -64,8 +64,8 @@ public final class DefaultHttp2HeadersFrame extends AbstractHttp2StreamFrame imp
     }
 
     @Override
-    public DefaultHttp2HeadersFrame setStreamId(int streamId) {
-        super.setStreamId(checkPositive(streamId, "stream identifier must be positive."));
+    public <V> DefaultHttp2HeadersFrame stream(Http2Stream2<V> stream) {
+        super.stream(stream);
         return this;
     }
 
@@ -91,7 +91,7 @@ public final class DefaultHttp2HeadersFrame extends AbstractHttp2StreamFrame imp
 
     @Override
     public String toString() {
-        return "DefaultHttp2HeadersFrame(streamId=" + getStreamId() + ", headers=" + headers
+        return "DefaultHttp2HeadersFrame(stream=" + stream() + ", headers=" + headers
                + ", endStream=" + endStream + ", padding=" + padding + ")";
     }
 

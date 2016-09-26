@@ -32,8 +32,8 @@ public class DefaultHttp2WindowUpdateFrame extends AbstractHttp2StreamFrame impl
     }
 
     @Override
-    public DefaultHttp2WindowUpdateFrame setStreamId(int streamId) {
-        super.setStreamId(streamId);
+    public <V> DefaultHttp2WindowUpdateFrame stream(Http2Stream2<V> stream) {
+        super.stream(stream);
         return this;
     }
 

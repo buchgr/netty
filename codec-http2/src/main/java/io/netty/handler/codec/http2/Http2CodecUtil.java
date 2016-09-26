@@ -113,6 +113,13 @@ public final class Http2CodecUtil {
     public static final int SMALLEST_MAX_CONCURRENT_STREAMS = 100;
 
     /**
+     * Returns true if the {@code streamId} is a valid HTTP/2 stream identifier.
+     */
+    public static boolean isStreamIdValid(int streamId) {
+        return streamId >= 0;
+    }
+
+    /**
      * Indicates whether or not the given value for max frame size falls within the valid range.
      */
     public static boolean isMaxFrameSizeValid(int maxFrameSize) {

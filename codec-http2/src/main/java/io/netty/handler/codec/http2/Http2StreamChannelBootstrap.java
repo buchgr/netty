@@ -25,6 +25,7 @@ import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
+import io.netty.handler.codec.http2.Http2MultiplexCodec.Http2StreamChannel;
 import io.netty.util.AttributeKey;
 import io.netty.util.internal.UnstableApi;
 
@@ -99,13 +100,14 @@ public class Http2StreamChannelBootstrap {
      * Creates a new channel that will eventually map to a local/outbound HTTP/2 stream.
      */
     public ChannelFuture connect() {
-        return connect(-1);
+        Http2Stream2<Http2StreamChannel> newStream = multiplexCodec.newStream();
+        return connect(newStream);
     }
 
     /**
      * Used by the {@link Http2MultiplexCodec} to instantiate incoming/remotely-created streams.
      */
-    ChannelFuture connect(int streamId) {
+    ChannelFuture connect(Http2Stream2<Http2StreamChannel> stream) {
         validateState();
 
         Channel parentChannel0;
@@ -118,7 +120,7 @@ public class Http2StreamChannelBootstrap {
         group0 = group0 == null ? parentChannel.eventLoop() : group0;
         ChannelHandler handler0 = handler;
 
-        return multiplexCodec0.createStreamChannel(parentChannel0, group0, handler0, options, attributes, streamId);
+        return multiplexCodec0.createStreamChannel(parentChannel0, group0, handler0, options, attributes, stream);
     }
 
     /**

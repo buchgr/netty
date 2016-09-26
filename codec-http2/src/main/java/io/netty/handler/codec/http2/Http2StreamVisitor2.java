@@ -13,23 +13,13 @@
  * License for the specific language governing permissions and limitations
  * under the License.
  */
+
 package io.netty.handler.codec.http2;
 
-import io.netty.util.internal.UnstableApi;
-
 /**
- * HTTP/2 HEADERS frame.
+ * Created by buchgr on 9/26/16.
  */
-@UnstableApi
-public interface Http2HeadersFrame extends Http2EndStreamFrame {
+public interface Http2StreamVisitor2<T> {
 
-    /**
-     * A complete header list. CONTINUATION frames are automatically handled.
-     */
-    Http2Headers headers();
-
-    /**
-     * Frame padding to use. Must be non-negative and less than 256.
-     */
-    int padding();
+    boolean visit(Http2Stream2<T> stream) throws Http2Exception;
 }

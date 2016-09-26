@@ -15,6 +15,7 @@
 
 package io.netty.handler.codec.http2;
 
+import static io.netty.handler.codec.http2.Http2CodecUtil.isStreamIdValid;
 import static io.netty.util.internal.ObjectUtil.checkNotNull;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
@@ -34,7 +35,6 @@ import io.netty.channel.MessageSizeEstimator;
 import io.netty.channel.RecvByteBufAllocator;
 import io.netty.channel.WriteBufferWaterMark;
 import io.netty.util.ReferenceCountUtil;
-import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.ThrowableUtil;
 
@@ -47,8 +47,9 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 /**
  * Child {@link Channel} of another channel, for use for modeling streams as channels.
  */
-abstract class AbstractHttp2StreamChannel extends AbstractChannel {
+abstract class AbstractHttp2StreamChannel<T extends AbstractHttp2StreamChannel<T>> extends AbstractChannel {
 
+    @SuppressWarnings("rawtypes")
     private static final AtomicLongFieldUpdater<AbstractHttp2StreamChannel> OUTBOUND_FLOW_CONTROL_WINDOW_UPDATER;
 
     /**
@@ -86,7 +87,7 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
     /**
      * Volatile, as parent and child channel may be on different eventloops.
      */
-    private volatile int streamId = -1;
+    private final Http2Stream2<T> stream;
     private boolean closed;
     private boolean readInProgress;
     /** {@code false} until the first headers frame has been written on the parent channel. **/
@@ -101,6 +102,7 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
     private volatile long outboundFlowControlWindow;
 
     static {
+        @SuppressWarnings("rawtypes")
         AtomicLongFieldUpdater<AbstractHttp2StreamChannel> updater = PlatformDependent.newAtomicLongFieldUpdater(
                 AbstractHttp2StreamChannel.class, "outboundFlowControlWindow");
         if (updater == null) {
@@ -109,8 +111,13 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
         OUTBOUND_FLOW_CONTROL_WINDOW_UPDATER = updater;
     }
 
-    protected AbstractHttp2StreamChannel(Channel parent) {
+    protected AbstractHttp2StreamChannel(Channel parent, Http2Stream2<T> stream) {
         super(parent);
+        this.stream = stream;
+    }
+
+    protected Http2Stream2<T> stream() {
+        return stream;
     }
 
     @Override
@@ -135,7 +142,7 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
 
     @Override
     public boolean isWritable() {
-        return hasStreamId()
+        return isStreamIdValid(stream.id())
                // So that the channel doesn't become active before the initial flow control window has been set.
                && outboundFlowControlWindow > 0
                // Could be null if channel closed.
@@ -226,14 +233,6 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
                 in.remove();
                 continue;
             }
-            if (!hasStreamId() && firstHeadersWritten) {
-                /**
-                 * Only the stream-initiating first HEADERS frame is flushed to the parent channel, until the
-                 * stream becomes active.
-                 */
-                return;
-            }
-            firstHeadersWritten = true;
             final int bytes = sizeEstimator.size(msg);
             /**
              * The flow control window needs to be decrement before stealing the message from the buffer (and thereby
@@ -319,21 +318,6 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
         }
     }
 
-    protected void setStreamId(int streamId) {
-        if (this.streamId != -1) {
-            throw new IllegalStateException("Stream identifier may only be set once.");
-        }
-        this.streamId = ObjectUtil.checkPositiveOrZero(streamId, "streamId");
-    }
-
-    protected int getStreamId() {
-        return streamId;
-    }
-
-    protected boolean hasStreamId() {
-        return streamId != -1;
-    }
-
     protected void incrementOutboundFlowControlWindow(int bytes) {
         if (bytes == 0) {
             return;
@@ -354,7 +338,7 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
         if (msg == CLOSE_MESSAGE) {
             allocHandle.readComplete();
             pipeline().fireChannelReadComplete();
-            unsafe().close(voidPromise());
+            close();
             return false;
         }
         if (msg instanceof Http2WindowUpdateFrame) {
@@ -503,7 +487,7 @@ abstract class AbstractHttp2StreamChannel extends AbstractChannel {
                  * Return the flow control window of the failed data frame. We expect this code to be rarely executed
                  * and by implementing it as a window update, we don't have to worry about thread-safety.
                  */
-                fireChildRead(new DefaultHttp2WindowUpdateFrame(bytes).setStreamId(getStreamId()));
+                fireChildRead(new DefaultHttp2WindowUpdateFrame(bytes).stream(stream));
             }
         }
     }

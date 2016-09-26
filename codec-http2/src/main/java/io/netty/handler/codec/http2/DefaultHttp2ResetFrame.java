@@ -46,8 +46,8 @@ public final class DefaultHttp2ResetFrame extends AbstractHttp2StreamFrame imple
     }
 
     @Override
-    public DefaultHttp2ResetFrame setStreamId(int streamId) {
-        super.setStreamId(checkPositive(streamId, "stream identifier must be positive."));
+    public <V> DefaultHttp2ResetFrame stream(Http2Stream2<V> stream) {
+        super.stream(stream);
         return this;
     }
 
@@ -63,7 +63,7 @@ public final class DefaultHttp2ResetFrame extends AbstractHttp2StreamFrame imple
 
     @Override
     public String toString() {
-        return "DefaultHttp2ResetFrame(stream=" + getStreamId() + "errorCode=" + errorCode + ")";
+        return "DefaultHttp2ResetFrame(stream=" + stream() + "errorCode=" + errorCode + ")";
     }
 
     @Override
