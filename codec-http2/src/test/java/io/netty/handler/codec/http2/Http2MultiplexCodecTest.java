@@ -31,6 +31,7 @@ import io.netty.channel.ChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpScheme;
+import io.netty.handler.codec.http2.Http2Exception.StreamException;
 import io.netty.util.AsciiString;
 import io.netty.util.AttributeKey;
 import io.netty.util.internal.PlatformDependent;
@@ -69,10 +70,10 @@ public class Http2MultiplexCodecTest {
             .authority(new AsciiString("example.org")).path(new AsciiString("/foo"));
 
     private static final Http2Stream2<? extends AbstractHttp2StreamChannel<?>> INBOUND_STREAM =
-            new Http2Stream2<AbstractHttp2StreamChannel<?>>(false).id(3);
+            new Http2Stream2<AbstractHttp2StreamChannel<?>>().id(3);
 
     private static final Http2Stream2<? extends AbstractHttp2StreamChannel<?>> OUTBOUND_STREAM =
-            new Http2Stream2<AbstractHttp2StreamChannel<?>>(false).id(2);
+            new Http2Stream2<AbstractHttp2StreamChannel<?>>().id(2);
 
     private static final int initialRemoteStreamWindow = 1024;
 
@@ -129,9 +130,9 @@ public class Http2MultiplexCodecTest {
 
     @Test
     public void framesShouldBeMultiplexed() {
-        Http2Stream2<Void> stream3 = new Http2Stream2<Void>(false).id(3);
-        Http2Stream2<Void> stream5 = new Http2Stream2<Void>(false).id(5);
-        Http2Stream2<Void> stream11 = new Http2Stream2<Void>(false).id(11);
+        Http2Stream2<Void> stream3 = new Http2Stream2<Void>().id(3);
+        Http2Stream2<Void> stream5 = new Http2Stream2<Void>().id(5);
+        Http2Stream2<Void> stream11 = new Http2Stream2<Void>().id(11);
 
         LastInboundHandler inboundHandler3 = streamActiveAndWriteHeaders(stream3);
         LastInboundHandler inboundHandler5 = streamActiveAndWriteHeaders(stream5);
@@ -258,12 +259,12 @@ public class Http2MultiplexCodecTest {
         assertNull(parentChannel.readOutbound());
     }
 
-    @Test(expected = FakeException.class)
+    @Test(expected = StreamException.class)
     public void streamExceptionTriggersChildChannelExceptionAndClose() throws Exception {
         LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
 
-        Exception cause = new FakeException();
-        Exception http2Ex = new Http2Stream2Exception(Http2Error.PROTOCOL_ERROR, "baaam!", cause, INBOUND_STREAM);
+        StreamException cause = new StreamException(INBOUND_STREAM.id(), Http2Error.PROTOCOL_ERROR, "baaam!");
+        Exception http2Ex = new Http2Stream2Exception(INBOUND_STREAM, Http2Error.PROTOCOL_ERROR, cause);
         parentChannel.pipeline().fireExceptionCaught(http2Ex);
 
         inboundHandler.checkException();
@@ -274,8 +275,8 @@ public class Http2MultiplexCodecTest {
         LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
 
         assertTrue(inboundHandler.channelActive);
-        Exception cause = new FakeException();
-        Exception http2Ex = new Http2Stream2Exception(Http2Error.PROTOCOL_ERROR, "baaam!", cause, INBOUND_STREAM);
+        StreamException cause = new StreamException(INBOUND_STREAM.id(), Http2Error.PROTOCOL_ERROR, "baaam!");
+        Exception http2Ex = new Http2Stream2Exception(INBOUND_STREAM, Http2Error.PROTOCOL_ERROR, cause);
         parentChannel.pipeline().fireExceptionCaught(http2Ex);
         parentChannel.runPendingTasks();
 
@@ -591,7 +592,7 @@ public class Http2MultiplexCodecTest {
 
         @Override
         <V> Http2Stream2<V> newStream0() {
-            return new Http2Stream2<V>(true);
+            return new Http2Stream2<V>();
         }
     }
 
@@ -688,10 +689,5 @@ public class Http2MultiplexCodecTest {
                 release(o);
             }
         }
-    }
-
-    static class FakeException extends Exception {
-
-        private static final long serialVersionUID = 1428073842362887561L;
     }
 }

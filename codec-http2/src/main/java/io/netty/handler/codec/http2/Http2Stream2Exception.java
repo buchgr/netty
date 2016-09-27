@@ -26,10 +26,10 @@ public class Http2Stream2Exception extends Exception {
     private final Http2Error error;
     private final Http2Stream2<?> stream;
 
-    public <T> Http2Stream2Exception(Http2Error error, String message, Throwable cause, Http2Stream2<T> stream) {
-        super(message, cause);
-        this.error = error;
+    public <T> Http2Stream2Exception(Http2Stream2<T> stream, Http2Error error, Throwable cause) {
+        super(cause.getMessage(), cause);
         this.stream = stream;
+        this.error = error;
     }
 
     public Http2Error error() {
@@ -40,5 +40,4 @@ public class Http2Stream2Exception extends Exception {
     public <T> Http2Stream2<T> stream() {
         return (Http2Stream2<T>) stream;
     }
-
 }

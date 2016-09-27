@@ -158,12 +158,12 @@ public class Http2MultiplexCodec extends Http2ChannelDuplexHandler {
     private void onStreamActive(Http2Stream2<Http2StreamChannel> stream) {
         final Http2StreamChannel childChannel;
         if (stream.managedState() == null) {
-            assert !stream.isOutbound();
+            //assert !stream.isOutbound();
 
             ChannelFuture future = bootstrap.connect(stream);
             childChannel = (Http2StreamChannel) future.channel();
         } else {
-            assert stream.isOutbound();
+            //assert stream.isOutbound();
 
             childChannel = stream.managedState();
         }

@@ -21,7 +21,7 @@ package io.netty.handler.codec.http2;
  */
 public class Http2Stream2<T> {
 
-    public static final Http2Stream2<Void> CONNECTION_STREAM = new Http2Stream2<Void>(false) {
+    public static final Http2Stream2<Void> CONNECTION_STREAM = new Http2Stream2<Void>() {
         @Override
         Http2Stream2<Void> id(int id) {
             throw new UnsupportedOperationException();
@@ -41,19 +41,12 @@ public class Http2Stream2<T> {
         public int id() {
             return 0;
         }
-
-        @Override
-        public boolean isOutbound() {
-            throw new UnsupportedOperationException();
-        }
     };
 
     private T managedState;
-    private final boolean isOutbound;
     private int id = -1;
 
-    Http2Stream2(boolean isOutbound) {
-        this.isOutbound = isOutbound;
+    public Http2Stream2() {
     }
 
     public T managedState() {
@@ -66,10 +59,6 @@ public class Http2Stream2<T> {
 
     public int id() {
         return id;
-    }
-
-    public boolean isOutbound() {
-        return isOutbound;
     }
 
     Http2Stream2<T> id(int id) {

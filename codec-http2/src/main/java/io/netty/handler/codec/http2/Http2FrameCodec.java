@@ -165,7 +165,7 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
      * Creates a new outbound/local stream.
      */
     <T> Http2Stream2<T> newStream() {
-        return new Http2Stream2<T>(true);
+        return new Http2Stream2<T>();
     }
 
     void forEachActiveStream(final Http2StreamVisitor2 streamVisitor) throws Http2Exception {
@@ -368,7 +368,7 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
             if (isOutboundStream(stream.id())) {
                 return;
             }
-            stream.setProperty(streamKey, new Http2Stream2<Object>(false).id(stream.id()));
+            stream.setProperty(streamKey, new Http2Stream2<Object>().id(stream.id()));
         }
 
         @Override
@@ -390,23 +390,14 @@ public class Http2FrameCodec extends ChannelDuplexHandler {
 
         @Override
         protected void onConnectionError(ChannelHandlerContext ctx, Throwable cause, Http2Exception http2Ex) {
-            try {
-                ctx.fireExceptionCaught(cause);
-            } finally {
-                super.onConnectionError(ctx, cause, http2Ex);
-            }
+            ctx.fireExceptionCaught(cause);
         }
 
         @Override
         protected void onStreamError(ChannelHandlerContext ctx, Throwable cause,
                                      Http2Exception.StreamException streamException) {
-            try {
-                Http2Stream2<?> stream = connection().stream(streamException.streamId()).getProperty(streamKey);
-                ctx.fireExceptionCaught(new Http2Stream2Exception(streamException.error(), streamException.getMessage(),
-                                                                  cause, stream));
-            } finally {
-                super.onStreamError(ctx, cause, streamException);
-            }
+            Http2Stream2<?> stream = connection().stream(streamException.streamId()).getProperty(streamKey);
+            ctx.fireExceptionCaught(new Http2Stream2Exception(stream, streamException.error(), cause));
         }
     }
 
