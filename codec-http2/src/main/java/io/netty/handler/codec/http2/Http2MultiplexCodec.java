@@ -173,7 +173,6 @@ public class Http2MultiplexCodec extends Http2ChannelDuplexHandler {
         childChannel.pipeline().fireChannelWritabilityChanged();
     }
 
-
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         if (cause instanceof Http2Stream2Exception) {
