@@ -78,8 +78,7 @@ public final class Http2FrameCodecBuilder {
     }
 
     public Http2FrameCodecBuilder windowUpdateRatio(float windowUpdateRatio) {
-        if (windowUpdateRatio <= Float.compare(windowUpdateRatio, 0) ||
-            windowUpdateRatio >= Float.compare(windowUpdateRatio, 1)) {
+        if (Float.compare(windowUpdateRatio, 0) > 0 || Float.compare(windowUpdateRatio, 1) < 1) {
             throw new IllegalArgumentException("windowUpdateRatio must be (0,1). Was: " + windowUpdateRatio);
         }
         this.windowUpdateRatio = windowUpdateRatio;

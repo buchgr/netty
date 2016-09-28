@@ -20,6 +20,7 @@ import io.netty.buffer.Unpooled;
 import io.netty.buffer.UnpooledByteBufAllocator;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
@@ -28,6 +29,7 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelOutboundHandlerAdapter;
 import io.netty.channel.ChannelPromise;
+import io.netty.channel.DefaultChannelPromise;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpScheme;
@@ -69,11 +71,9 @@ public class Http2MultiplexCodecTest {
             .method(HttpMethod.GET.asciiName()).scheme(HttpScheme.HTTPS.name())
             .authority(new AsciiString("example.org")).path(new AsciiString("/foo"));
 
-    private static final Http2Stream2<? extends AbstractHttp2StreamChannel<?>> INBOUND_STREAM =
-            new Http2Stream2<AbstractHttp2StreamChannel<?>>().id(3);
+    private Http2Stream2 inboundStream;
 
-    private static final Http2Stream2<? extends AbstractHttp2StreamChannel<?>> OUTBOUND_STREAM =
-            new Http2Stream2<AbstractHttp2StreamChannel<?>>().id(2);
+    private Http2Stream2 outboundStream;
 
     private static final int initialRemoteStreamWindow = 1024;
 
@@ -88,6 +88,9 @@ public class Http2MultiplexCodecTest {
 
         Http2Settings settings = new Http2Settings().initialWindowSize(initialRemoteStreamWindow);
         parentChannel.pipeline().fireChannelRead(new DefaultHttp2SettingsFrame(settings));
+
+        inboundStream = new Http2Stream2Impl(parentChannel).id(3);
+        outboundStream = new Http2Stream2Impl(parentChannel).id(2);
     }
 
     @After
@@ -97,8 +100,8 @@ public class Http2MultiplexCodecTest {
         }
         parentChannel.finishAndReleaseAll();
 
-        INBOUND_STREAM.managedState(null);
-        OUTBOUND_STREAM.managedState(null);
+        ((ChannelPromise) inboundStream.closeFuture()).trySuccess();
+        ((ChannelPromise) outboundStream.closeFuture()).trySuccess();
     }
 
     // TODO(buchgr): Thread model of child channel
@@ -112,9 +115,9 @@ public class Http2MultiplexCodecTest {
         LastInboundHandler inboundHandler = new LastInboundHandler();
         childChannelInitializer.handler = inboundHandler;
 
-        Http2HeadersFrame headersFrame = new DefaultHttp2HeadersFrame(request).stream(INBOUND_STREAM);
-        Http2DataFrame dataFrame1 = releaseLater(new DefaultHttp2DataFrame(bb("hello")).stream(INBOUND_STREAM));
-        Http2DataFrame dataFrame2 = releaseLater(new DefaultHttp2DataFrame(bb("world")).stream(INBOUND_STREAM));
+        Http2HeadersFrame headersFrame = new DefaultHttp2HeadersFrame(request).stream(inboundStream);
+        Http2DataFrame dataFrame1 = releaseLater(new DefaultHttp2DataFrame(bb("hello")).stream(inboundStream));
+        Http2DataFrame dataFrame2 = releaseLater(new DefaultHttp2DataFrame(bb("world")).stream(inboundStream));
 
         assertFalse(inboundHandler.channelActive);
         parentChannel.pipeline().fireChannelRead(headersFrame);
@@ -130,9 +133,9 @@ public class Http2MultiplexCodecTest {
 
     @Test
     public void framesShouldBeMultiplexed() {
-        Http2Stream2<Void> stream3 = new Http2Stream2<Void>().id(3);
-        Http2Stream2<Void> stream5 = new Http2Stream2<Void>().id(5);
-        Http2Stream2<Void> stream11 = new Http2Stream2<Void>().id(11);
+        Http2Stream2 stream3 = new Http2Stream2Impl(parentChannel).id(3);
+        Http2Stream2 stream5 = new Http2Stream2Impl(parentChannel).id(5);
+        Http2Stream2 stream11 = new Http2Stream2Impl(parentChannel).id(11);
 
         LastInboundHandler inboundHandler3 = streamActiveAndWriteHeaders(stream3);
         LastInboundHandler inboundHandler5 = streamActiveAndWriteHeaders(stream5);
@@ -149,30 +152,34 @@ public class Http2MultiplexCodecTest {
         verifyFramesMultiplexedToCorrectChannel(stream5, inboundHandler5, 2);
         verifyFramesMultiplexedToCorrectChannel(stream3, inboundHandler3, 1);
         verifyFramesMultiplexedToCorrectChannel(stream11, inboundHandler11, 1);
+
+        ((ChannelPromise) stream3.closeFuture()).setSuccess();
+        ((ChannelPromise) stream5.closeFuture()).setSuccess();
+        ((ChannelPromise) stream11.closeFuture()).setSuccess();
     }
 
     @Test
     public void inboundDataFrameShouldEmitWindowUpdateFrame() {
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
         ByteBuf tenBytes = bb("0123456789");
         parentChannel.pipeline().fireChannelRead(
-                new DefaultHttp2DataFrame(tenBytes, true).stream(INBOUND_STREAM));
+                new DefaultHttp2DataFrame(tenBytes, true).stream(inboundStream));
         parentChannel.pipeline().fireChannelReadComplete();
 
         // Flush is only necessary cause of EmbeddedChannel
         parentChannel.flush();
         Http2WindowUpdateFrame windowUpdate = parentChannel.readOutbound();
         assertNotNull(windowUpdate);
-        assertEquals(INBOUND_STREAM, windowUpdate.stream());
+        assertEquals(inboundStream, windowUpdate.stream());
         assertEquals(10, windowUpdate.windowSizeIncrement());
 
         // headers and data frame
-        verifyFramesMultiplexedToCorrectChannel(INBOUND_STREAM, inboundHandler, 2);
+        verifyFramesMultiplexedToCorrectChannel(inboundStream, inboundHandler, 2);
     }
 
     @Test
     public void channelReadShouldRespectAutoRead() {
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
         Channel childChannel = inboundHandler.channel();
         assertTrue(childChannel.config().isAutoRead());
         Http2HeadersFrame headersFrame = inboundHandler.readInbound();
@@ -180,21 +187,21 @@ public class Http2MultiplexCodecTest {
 
         childChannel.config().setAutoRead(false);
         parentChannel.pipeline().fireChannelRead(
-                new DefaultHttp2DataFrame(bb("hello world"), false).stream(INBOUND_STREAM));
+                new DefaultHttp2DataFrame(bb("hello world"), false).stream(inboundStream));
         parentChannel.pipeline().fireChannelReadComplete();
         Http2DataFrame dataFrame0 = inboundHandler.readInbound();
         assertNotNull(dataFrame0);
         release(dataFrame0);
 
-        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("foo"), false).stream(INBOUND_STREAM));
-        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("bar"), true).stream(INBOUND_STREAM));
+        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("foo"), false).stream(inboundStream));
+        parentChannel.pipeline().fireChannelRead(new DefaultHttp2DataFrame(bb("bar"), true).stream(inboundStream));
         parentChannel.pipeline().fireChannelReadComplete();
 
         dataFrame0 = inboundHandler.readInbound();
         assertNull(dataFrame0);
 
         childChannel.config().setAutoRead(true);
-        verifyFramesMultiplexedToCorrectChannel(INBOUND_STREAM, inboundHandler, 2);
+        verifyFramesMultiplexedToCorrectChannel(inboundStream, inboundHandler, 2);
     }
 
     /**
@@ -235,7 +242,7 @@ public class Http2MultiplexCodecTest {
 
         parentChannel.flush();
 
-        Http2Stream2<Void> stream2 = readOutboundHeadersAndAssignId();
+        Http2Stream2 stream2 = readOutboundHeadersAndAssignId();
 
         childChannel.close();
         parentChannel.runPendingTasks();
@@ -247,11 +254,16 @@ public class Http2MultiplexCodecTest {
 
     @Test
     public void inboundRstStreamFireChannelInactive() {
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
         assertTrue(inboundHandler.channelActive);
 
         parentChannel.pipeline().fireChannelRead(new DefaultHttp2ResetFrame(Http2Error.INTERNAL_ERROR)
-                                                       .stream(INBOUND_STREAM));
+                                                       .stream(inboundStream));
+        parentChannel.pipeline().fireChannelReadComplete();
+
+        // This will be called by the frame codec.
+        ((ChannelPromise) inboundStream.closeFuture()).setSuccess();
+
         parentChannel.runPendingTasks();
 
         assertFalse(inboundHandler.channelActive);
@@ -261,10 +273,10 @@ public class Http2MultiplexCodecTest {
 
     @Test(expected = StreamException.class)
     public void streamExceptionTriggersChildChannelExceptionAndClose() throws Exception {
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
 
-        StreamException cause = new StreamException(INBOUND_STREAM.id(), Http2Error.PROTOCOL_ERROR, "baaam!");
-        Exception http2Ex = new Http2Stream2Exception(INBOUND_STREAM, Http2Error.PROTOCOL_ERROR, cause);
+        StreamException cause = new StreamException(inboundStream.id(), Http2Error.PROTOCOL_ERROR, "baaam!");
+        Exception http2Ex = new Http2Stream2Exception(inboundStream, Http2Error.PROTOCOL_ERROR, cause);
         parentChannel.pipeline().fireExceptionCaught(http2Ex);
 
         inboundHandler.checkException();
@@ -272,11 +284,11 @@ public class Http2MultiplexCodecTest {
 
     @Test
     public void streamExceptionClosesChildChannel() {
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
 
         assertTrue(inboundHandler.channelActive);
-        StreamException cause = new StreamException(INBOUND_STREAM.id(), Http2Error.PROTOCOL_ERROR, "baaam!");
-        Exception http2Ex = new Http2Stream2Exception(INBOUND_STREAM, Http2Error.PROTOCOL_ERROR, cause);
+        StreamException cause = new StreamException(inboundStream.id(), Http2Error.PROTOCOL_ERROR, "baaam!");
+        Exception http2Ex = new Http2Stream2Exception(inboundStream, Http2Error.PROTOCOL_ERROR, cause);
         parentChannel.pipeline().fireExceptionCaught(http2Ex);
         parentChannel.runPendingTasks();
 
@@ -388,7 +400,7 @@ public class Http2MultiplexCodecTest {
         childChannel.writeAndFlush(new DefaultHttp2HeadersFrame(new DefaultHttp2Headers()));
         parentChannel.flush();
 
-        Http2Stream2<Void> stream2 = readOutboundHeadersAndAssignId();
+        Http2Stream2 stream2 = readOutboundHeadersAndAssignId();
 
         // Test for initial window size
         assertEquals(initialRemoteStreamWindow, childChannel.getOutboundFlowControlWindow());
@@ -402,7 +414,7 @@ public class Http2MultiplexCodecTest {
 
     @Test
     public void onlyDataFramesShouldBeFlowControlled() {
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
         AbstractHttp2StreamChannel<?> childChannel = (AbstractHttp2StreamChannel<?>) inboundHandler.channel();
         assertTrue(childChannel.isWritable());
         assertEquals(initialRemoteStreamWindow, childChannel.getOutboundFlowControlWindow());
@@ -420,7 +432,7 @@ public class Http2MultiplexCodecTest {
 
     @Test
     public void writabilityAndFlowControl() {
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
         AbstractHttp2StreamChannel<?> childChannel = (AbstractHttp2StreamChannel<?>) inboundHandler.channel();
         verifyFlowControlWindowAndWritability(childChannel, initialRemoteStreamWindow);
         assertEquals("true", inboundHandler.writabilityStates);
@@ -442,13 +454,13 @@ public class Http2MultiplexCodecTest {
         verifyFlowControlWindowAndWritability(childChannel, -99);
         assertEquals("true,false", inboundHandler.writabilityStates);
 
-        parentChannel.pipeline().fireChannelRead(new DefaultHttp2WindowUpdateFrame(99).stream(INBOUND_STREAM));
+        parentChannel.pipeline().fireChannelRead(new DefaultHttp2WindowUpdateFrame(99).stream(inboundStream));
         parentChannel.pipeline().fireChannelReadComplete();
         // the flow control window should be updated, but the channel should still not be writable.
         verifyFlowControlWindowAndWritability(childChannel, 0);
         assertEquals("true,false", inboundHandler.writabilityStates);
 
-        parentChannel.pipeline().fireChannelRead(new DefaultHttp2WindowUpdateFrame(1).stream(INBOUND_STREAM));
+        parentChannel.pipeline().fireChannelRead(new DefaultHttp2WindowUpdateFrame(1).stream(inboundStream));
         parentChannel.pipeline().fireChannelReadComplete();
         verifyFlowControlWindowAndWritability(childChannel, 1);
         assertEquals("true,false,true", inboundHandler.writabilityStates);
@@ -469,7 +481,7 @@ public class Http2MultiplexCodecTest {
             }
         });
 
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
         Channel childChannel = inboundHandler.channel();
 
         childChannel.write(new DefaultHttp2HeadersFrame(new DefaultHttp2Headers()));
@@ -488,7 +500,7 @@ public class Http2MultiplexCodecTest {
 
     @Test
     public void cancellingWritesBeforeFlush() {
-        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(INBOUND_STREAM);
+        LastInboundHandler inboundHandler = streamActiveAndWriteHeaders(inboundStream);
         Channel childChannel = inboundHandler.channel();
 
         Http2HeadersFrame headers1 = new DefaultHttp2HeadersFrame(new DefaultHttp2Headers());
@@ -511,7 +523,7 @@ public class Http2MultiplexCodecTest {
         assertEquals(expectedWindowSize > 0, channel.isWritable());
     }
 
-    private LastInboundHandler streamActiveAndWriteHeaders(Http2Stream2<?> stream) {
+    private LastInboundHandler streamActiveAndWriteHeaders(Http2Stream2 stream) {
         LastInboundHandler inboundHandler = new LastInboundHandler();
         childChannelInitializer.handler = inboundHandler;
         assertFalse(inboundHandler.channelActive);
@@ -523,7 +535,7 @@ public class Http2MultiplexCodecTest {
         return inboundHandler;
     }
 
-    private static void verifyFramesMultiplexedToCorrectChannel(Http2Stream2<?> stream,
+    private static void verifyFramesMultiplexedToCorrectChannel(Http2Stream2 stream,
                                                                 LastInboundHandler inboundHandler,
                                                                 int numFrames) {
         for (int i = 0; i < numFrames; i++) {
@@ -555,14 +567,14 @@ public class Http2MultiplexCodecTest {
     /**
      * Simulates the frame codec, in first assigning an identifier and the completing the write promise.
      */
-    <V> Http2Stream2<V> readOutboundHeadersAndAssignId() {
+    Http2Stream2 readOutboundHeadersAndAssignId() {
         // Only peek at the frame, so to not complete the promise of the write. We need to first
         // assign a stream identifier, as the frame codec would do.
         Http2HeadersFrame headersFrame = (Http2HeadersFrame) parentChannel.outboundMessages().peek();
         assertNotNull(headersFrame);
         assertNotNull(headersFrame.stream());
         assertFalse(Http2CodecUtil.isStreamIdValid(headersFrame.stream().id()));
-        headersFrame.stream().id(OUTBOUND_STREAM.id());
+        headersFrame.stream().id(outboundStream.id());
 
         // Now read it and complete the write promise.
         assertSame(headersFrame, parentChannel.readOutbound());
@@ -573,7 +585,7 @@ public class Http2MultiplexCodecTest {
     /**
      * This class removes the bits that would require the frame codec, so that the class becomes testable.
      */
-    static class TestableHttp2MultiplexCodec extends Http2MultiplexCodec {
+    static final class TestableHttp2MultiplexCodec extends Http2MultiplexCodec {
 
         TestableHttp2MultiplexCodec(boolean server, Http2StreamChannelBootstrap bootstrap) {
             super(server, bootstrap);
@@ -586,13 +598,51 @@ public class Http2MultiplexCodecTest {
         }
 
         @Override
-        <V> void forEachActiveStream0(Http2StreamVisitor2<V> streamVisitor) throws Http2Exception {
+        void forEachActiveStream0(Http2Stream2Visitor streamVisitor) throws Http2Exception {
             throw new UnsupportedOperationException();
         }
 
         @Override
-        <V> Http2Stream2<V> newStream0() {
-            return new Http2Stream2<V>();
+        Http2Stream2 newStream0() {
+            return new Http2Stream2Impl(ctx.channel());
+        }
+    }
+
+    static final class Http2Stream2Impl implements Http2Stream2 {
+
+        private int id = -1;
+        private Object managedState;
+        private final ChannelPromise closeFuture;
+
+        Http2Stream2Impl(Channel ch) {
+            closeFuture = new DefaultChannelPromise(ch);
+        }
+
+        @Override
+        public Http2Stream2 id(int id) {
+            this.id = id;
+            return this;
+        }
+
+        @Override
+        public int id() {
+            return id;
+        }
+
+        @Override
+        public Http2Stream2 managedState(Object state) {
+            managedState = state;
+            return this;
+        }
+
+        @Override
+        public Object managedState() {
+            return managedState;
+        }
+
+        @Override
+        public ChannelFuture closeFuture() {
+            return closeFuture;
         }
     }
 

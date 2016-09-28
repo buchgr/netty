@@ -24,9 +24,9 @@ public class Http2Stream2Exception extends Exception {
     private static final long serialVersionUID = -4407186173493887044L;
 
     private final Http2Error error;
-    private final Http2Stream2<?> stream;
+    private final Http2Stream2 stream;
 
-    public <T> Http2Stream2Exception(Http2Stream2<T> stream, Http2Error error, Throwable cause) {
+    public <T> Http2Stream2Exception(Http2Stream2 stream, Http2Error error, Throwable cause) {
         super(cause.getMessage(), cause);
         this.stream = stream;
         this.error = error;
@@ -37,7 +37,7 @@ public class Http2Stream2Exception extends Exception {
     }
 
     @SuppressWarnings("unchecked")
-    public <T> Http2Stream2<T> stream() {
-        return (Http2Stream2<T>) stream;
+    public Http2Stream2 stream() {
+        return stream;
     }
 }

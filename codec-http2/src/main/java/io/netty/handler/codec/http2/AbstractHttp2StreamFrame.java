@@ -15,7 +15,6 @@
  */
 package io.netty.handler.codec.http2;
 
-import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.UnstableApi;
 
 /**
@@ -24,18 +23,17 @@ import io.netty.util.internal.UnstableApi;
 @UnstableApi
 public abstract class AbstractHttp2StreamFrame implements Http2StreamFrame {
 
-    private volatile Http2Stream2<?> stream;
+    private volatile Http2Stream2 stream;
 
     @Override
-    public <V> AbstractHttp2StreamFrame stream(Http2Stream2<V> stream) {
+    public AbstractHttp2StreamFrame stream(Http2Stream2 stream) {
         this.stream = stream;
         return this;
     }
 
     @Override
-    @SuppressWarnings("unchecked")
-    public <V> Http2Stream2<V> stream() {
-        return (Http2Stream2<V>) stream;
+    public Http2Stream2 stream() {
+        return stream;
     }
 
     /**

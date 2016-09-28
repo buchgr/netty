@@ -95,6 +95,12 @@ public class AbstractChannelTest {
         assertThat(channelId, instanceOf(DefaultChannelId.class));
     }
 
+    @Test
+    public void testCloseFuture() {
+        TestChannel channel = new TestChannel();
+        ((ChannelPromise) channel.closeFuture()).trySuccess(null);
+    }
+
     private static void registerChannel(EventLoop eventLoop, Channel channel) throws Exception {
         DefaultChannelPromise future = new DefaultChannelPromise(channel);
         channel.unsafe().register(eventLoop, future);

@@ -87,11 +87,9 @@ abstract class AbstractHttp2StreamChannel<T extends AbstractHttp2StreamChannel<T
     /**
      * Volatile, as parent and child channel may be on different eventloops.
      */
-    private final Http2Stream2<T> stream;
+    private final Http2Stream2 stream;
     private boolean closed;
     private boolean readInProgress;
-    /** {@code false} until the first headers frame has been written on the parent channel. **/
-    private boolean firstHeadersWritten;
 
     /**
      * The flow control window of the remote side i.e. the number of bytes this channel is allowed to send to the remote
@@ -111,12 +109,12 @@ abstract class AbstractHttp2StreamChannel<T extends AbstractHttp2StreamChannel<T
         OUTBOUND_FLOW_CONTROL_WINDOW_UPDATER = updater;
     }
 
-    protected AbstractHttp2StreamChannel(Channel parent, Http2Stream2<T> stream) {
+    protected AbstractHttp2StreamChannel(Channel parent, Http2Stream2 stream) {
         super(parent);
         this.stream = stream;
     }
 
-    protected Http2Stream2<T> stream() {
+    protected Http2Stream2 stream() {
         return stream;
     }
 

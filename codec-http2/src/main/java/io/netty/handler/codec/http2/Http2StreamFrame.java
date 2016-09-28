@@ -26,7 +26,7 @@ import io.netty.util.internal.UnstableApi;
 @UnstableApi
 public interface Http2StreamFrame extends Http2Frame {
 
-    <V> Http2StreamFrame stream(Http2Stream2<V> stream);
+    Http2StreamFrame stream(Http2Stream2 stream);
 
-    <V> Http2Stream2<V> stream();
+    Http2Stream2 stream();
 }

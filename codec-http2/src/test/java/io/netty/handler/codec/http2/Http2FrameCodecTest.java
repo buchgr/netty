@@ -129,7 +129,7 @@ public class Http2FrameCodecTest {
         assertEquals(State.HALF_CLOSED_REMOTE, stream.state());
 
         Http2StreamFrame inboundFrame = inboundHandler.readInbound();
-        Http2Stream2<Void> stream2 = inboundFrame.stream();
+        Http2Stream2 stream2 = inboundFrame.stream();
         assertNotNull(stream2);
         assertEquals(1, stream2.id());
         assertEquals(inboundFrame, new DefaultHttp2HeadersFrame(request, true, 31).stream(stream2));
@@ -155,7 +155,7 @@ public class Http2FrameCodecTest {
         assertEquals(State.OPEN, stream.state());
 
         Http2HeadersFrame inboundHeaders = inboundHandler.readInbound();
-        Http2Stream2<Void> stream2 = inboundHeaders.stream();
+        Http2Stream2 stream2 = inboundHeaders.stream();
         assertNotNull(stream2);
         assertEquals(1, stream2.id());
         assertEquals(new DefaultHttp2HeadersFrame(request, false).stream(stream2), inboundHeaders);
@@ -198,7 +198,7 @@ public class Http2FrameCodecTest {
         assertNotNull(inboundHeaders);
         assertTrue(inboundHeaders.isEndStream());
 
-        Http2Stream2<Void> stream2 = inboundHeaders.stream();
+        Http2Stream2 stream2 = inboundHeaders.stream();
         assertNotNull(stream2);
         assertEquals(3, stream2.id());
 
@@ -351,7 +351,7 @@ public class Http2FrameCodecTest {
         assertNotNull(inboundHeaders);
         assertNotNull(inboundHeaders.stream());
 
-        Http2Stream2<Void> stream2 = inboundHeaders.stream();
+        Http2Stream2 stream2 = inboundHeaders.stream();
 
         int before = connection.local().flowController().unconsumedBytes(stream);
         ChannelFuture f = channel.write(new DefaultHttp2WindowUpdateFrame(100).stream(stream2));
@@ -370,7 +370,7 @@ public class Http2FrameCodecTest {
         Http2HeadersFrame inboundHeaders = inboundHandler.readInbound();
         assertNotNull(inboundHeaders);
 
-        Http2Stream2<Void> stream2 = inboundHeaders.stream();
+        Http2Stream2 stream2 = inboundHeaders.stream();
 
         // Fails, cause trying to return too many bytes to the flow controller
         ChannelFuture f = channel.write(new DefaultHttp2WindowUpdateFrame(100).stream(stream2));

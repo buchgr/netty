@@ -17,9 +17,9 @@
 package io.netty.handler.codec.http2;
 
 /**
- * Created by buchgr on 9/26/16.
+ * Foo bar.
  */
-public interface Http2StreamVisitor2<T> {
+public interface Http2Stream2Visitor {
 
-    boolean visit(Http2Stream2<T> stream) throws Http2Exception;
+    boolean visit(Http2Stream2 stream) throws Http2Exception;
 }

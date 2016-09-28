@@ -77,7 +77,7 @@ public final class DefaultHttp2DataFrame extends AbstractHttp2StreamFrame implem
     }
 
     @Override
-    public <V> DefaultHttp2DataFrame stream(Http2Stream2<V> stream) {
+    public DefaultHttp2DataFrame stream(Http2Stream2 stream) {
         super.stream(stream);
         return this;
     }

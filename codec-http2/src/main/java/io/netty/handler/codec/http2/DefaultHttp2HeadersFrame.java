@@ -64,7 +64,7 @@ public final class DefaultHttp2HeadersFrame extends AbstractHttp2StreamFrame imp
     }
 
     @Override
-    public <V> DefaultHttp2HeadersFrame stream(Http2Stream2<V> stream) {
+    public DefaultHttp2HeadersFrame stream(Http2Stream2 stream) {
         super.stream(stream);
         return this;
     }
@@ -79,7 +79,6 @@ public final class DefaultHttp2HeadersFrame extends AbstractHttp2StreamFrame imp
         return headers;
     }
 
-    @Override
     public boolean isEndStream() {
         return endStream;
     }

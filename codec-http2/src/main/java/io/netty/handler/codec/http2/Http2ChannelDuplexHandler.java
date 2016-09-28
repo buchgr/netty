@@ -36,21 +36,21 @@ public class Http2ChannelDuplexHandler extends ChannelDuplexHandler {
         frameCodec = null;
     }
 
-    public final <V> Http2Stream2<V> newStream() {
+    public final Http2Stream2 newStream() {
         return newStream0();
     }
 
-    protected final <V> void forEachActiveStream(Http2StreamVisitor2<V> streamVisitor) throws Http2Exception {
+    protected final void forEachActiveStream(Http2Stream2Visitor streamVisitor) throws Http2Exception {
         forEachActiveStream0(streamVisitor);
     }
 
     // So that it can be overwritten by tests, without being visible to the public.
-    <V> void forEachActiveStream0(Http2StreamVisitor2<V> streamVisitor) throws Http2Exception {
+    void forEachActiveStream0(Http2Stream2Visitor streamVisitor) throws Http2Exception {
         frameCodec.forEachActiveStream(streamVisitor);
     }
 
     // So that it can be overwritten by tests, without being visible to the public.
-    <V> Http2Stream2<V> newStream0() {
+    Http2Stream2 newStream0() {
         if (frameCodec == null) {
             throw new IllegalStateException("Frame codec not found. Has the handler been added to a pipeline?");
         }

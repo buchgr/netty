@@ -46,7 +46,7 @@ public final class DefaultHttp2ResetFrame extends AbstractHttp2StreamFrame imple
     }
 
     @Override
-    public <V> DefaultHttp2ResetFrame stream(Http2Stream2<V> stream) {
+    public DefaultHttp2ResetFrame stream(Http2Stream2 stream) {
         super.stream(stream);
         return this;
     }

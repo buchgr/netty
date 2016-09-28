@@ -16,24 +16,17 @@
 
 package io.netty.handler.codec.http2;
 
+import io.netty.channel.ChannelFuture;
+
 /**
- * Created by buchgr on 9/26/16.
+ * Foo bar.
  */
-public class Http2Stream2<T> {
+public interface Http2Stream2 {
 
-    public static final Http2Stream2<Void> CONNECTION_STREAM = new Http2Stream2<Void>() {
-        @Override
-        Http2Stream2<Void> id(int id) {
-            throw new UnsupportedOperationException();
-        }
+    Http2Stream2 CONNECTION_STREAM = new Http2Stream2() {
 
         @Override
-        public Void managedState() {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        public void managedState(Void state) {
+        public Http2Stream2 id(int id) {
             throw new UnsupportedOperationException();
         }
 
@@ -41,28 +34,30 @@ public class Http2Stream2<T> {
         public int id() {
             return 0;
         }
+
+        @Override
+        public Http2Stream2 managedState(Object state) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public Object managedState() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public ChannelFuture closeFuture() {
+            throw new UnsupportedOperationException();
+        }
     };
 
-    private T managedState;
-    private int id = -1;
+    Http2Stream2 id(int id);
 
-    public Http2Stream2() {
-    }
+    int id();
 
-    public T managedState() {
-        return managedState;
-    }
+    Http2Stream2 managedState(Object state);
 
-    public void managedState(T state) {
-        managedState = state;
-    }
+    Object managedState();
 
-    public int id() {
-        return id;
-    }
-
-    Http2Stream2<T> id(int id) {
-        this.id = id;
-        return this;
-    }
+    ChannelFuture closeFuture();
 }
